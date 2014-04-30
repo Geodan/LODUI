@@ -1,6 +1,8 @@
 var lodui = lodui || {};
 
 lodui.map = function(id, config){
+	var self = this;
+	var active = d3.select(null);
 	var mapdiv = d3.select('#' + id);
 	this.config = config;
 	this._layers = [];
@@ -14,15 +16,58 @@ lodui.map = function(id, config){
     .size([width, height]);
 	
 	var projection = d3.geo.mercator()
-		.scale((1 << 18) / 2 / Math.PI)
+		.scale((1 << 20) / 2 / Math.PI)
 		.translate([width / 2, height / 2]);
+		
 	this.projection = projection;	
+	
 	var center = projection(center || [5.2, 52.2]);
 	var geoPath = d3.geo.path()
 		.projection(projection).pointRadius(function(d){
 			return 10 / zoom.scale(); //is a constant
 		});
 	this.geoPath = geoPath;
+	var zoom = d3.behavior.zoom()
+		.scale(projection.scale() * 2 * Math.PI)
+		.scaleExtent([1 << 10, 1 << 24])
+		.translate([width - center[0], height - center[1]])
+		.on("zoom", redraw);
+	this.zoom = zoom;
+	// With the center computed, now adjust the projection such that
+	// it uses the zoom behavior’s translate and scale.
+	projection
+    .scale(1 / 2 / Math.PI)
+    .translate([0, 0]);
+	
+	function clicked(d) {
+	  if (active.node() === this) return self.reset();
+	  active.classed("active", false);
+	  active = d3.select(this).classed("active", true);
+
+	  var bounds = self.geoPath.bounds(d),
+		  dx = bounds[1][0] - bounds[0][0],
+		  dy = bounds[1][1] - bounds[0][1],
+		  x = (bounds[0][0] + bounds[1][0]) / 2,
+		  y = (bounds[0][1] + bounds[1][1]) / 2,
+		  scale = .9 / Math.max(dx / width, dy / height),
+		  translate = [width / 2 - scale * x, height / 2 - scale * y];
+
+	  svg.transition()
+		  .duration(750)
+		  .call(zoom.translate(translate).scale(scale).event);
+	}
+	this.clicked = clicked;
+	function reset() {
+	  active.classed("active", false);
+	  active = d3.select(null);
+
+	  svg.transition()
+		  .duration(750)
+		  .call(zoom.translate([0, 0]).scale(1).event);
+	}
+	this.reset = reset;
+
+	
 	
 	function redraw() { 
 		var tiles = tile
@@ -32,7 +77,9 @@ lodui.map = function(id, config){
 		
 		vector
 			.attr("transform", "translate(" + zoom.translate() + ")scale(" + zoom.scale() + ")")
-			.style("stroke-width", 1 / zoom.scale());
+			.style("stroke-width", 1 / zoom.scale())
+		vector.selectAll('circle')
+			.attr('r',5 / zoom.scale());
 						
 		var image = raster
 			.attr("transform", "scale(" + tiles.scale + ")translate(" + tiles.translate + ")")
@@ -50,17 +97,7 @@ lodui.map = function(id, config){
 		  .attr("y", function(d) { return d[1]; });
 	}
 	this.redraw = redraw;
-	var zoom = d3.behavior.zoom()
-		.scale(projection.scale() * 2 * Math.PI)
-		.scaleExtent([1 << 11, 1 << 20])
-		.translate([width - center[0], height - center[1]])
-		.on("zoom", redraw);
-	this.zoom = zoom;
-	// With the center computed, now adjust the projection such that
-	// it uses the zoom behavior’s translate and scale.
-	projection
-    .scale(1 / 2 / Math.PI)
-    .translate([0, 0]);
+	
 	
 	var svg = mapdiv.append("svg")
 		.attr("width", width)
@@ -69,32 +106,6 @@ lodui.map = function(id, config){
 	var raster = svg.append("g").attr('id', 'raster');	
 	var vector = svg.append("g").attr('id','vector');
 	this.vector = vector;
-	/*
-	d3.json("./data/cbs2013/gemeenten.topojson", function(error, data) {
-		svg.call(zoom);
-		//vector.attr("d", geoPath(topojson.mesh(data, data.objects.gemeenten)));
-		var layer = vector.append('g').attr('id','gemeenten');
-		
-		var areas = topojson.feature(data, data.objects.gemeenten);
-		for (var i = 0; i < areas.features.length; i++ ){
-			areas.features[i].id = i;
-		}
-		layer.selectAll("path")
-			.data(areas.features)
-			.enter().append("path")
-			.attr('d', geoPath)
-			.on('mouseover', function(d){
-				d3.select(this).style('opacity',0.5);
-			})
-			.on('mouseout', function(d){
-				d3.select(this).style('opacity',1);
-			});
-		
-		redraw();
-	});
-	*/
-	
-	
 }
 
 /** 
@@ -111,13 +122,7 @@ lodui.map.prototype.layers = function(id,config){
 	}
 	else {
 		this.svg.call(this.zoom);
-		var layer = new lodui.layer({
-			id: id,
-			data: config.data,
-			style: config.style,
-			type: config.type,
-			map: this
-		});
+		var layer = new lodui.layer(id, this, config);
 		this._layers.push(layer);
 		return layer;
 	}
@@ -127,3 +132,4 @@ lodui.map.prototype.redraw = function(){
 	this.svg.call(zoom);
 	this.redraw();
 }
+

@@ -23,6 +23,19 @@
 		stroke: grey;
 		
 	}
+	#buurten {
+		fill: steelBlue;
+		fill-opacity: 0.2;
+		stroke: steelBlue;
+	}
+	#infobox {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		width: 200px;
+		height: 200px;
+		background-color: white;
+	}
    
     </style>
 </head>
@@ -30,31 +43,36 @@
 <div id='map'></div>
 <div id="data"></div>
 <div id='graph'></div>
-
+<div id='infobox'>empty</div>
 
 <script>
 
-var map = new lodui.map('map', {center: [5.2,52.2]});
+var map = new lodui.map('map', {center: [4.740008,52.892394]});
 
-var gemeentelayer = map.layers('gemeenten', {});
+var gemeentelayer = map.layers('gemeenten', {
+	type: 'path'
+});
+
 d3.json("./data/cbs2013/gemeenten.topojson", function(error, data) {
   var areas = topojson.feature(data, data.objects.gemeenten);
   for (var i = 0; i < areas.features.length; i++ ){
 	areas.features[i].id = i;
   }
-  gemeentelayer.data(areas.features);
+  //gemeentelayer.data(areas.features);
   map.redraw();
 });
 
-//var buurtlayer = map.layers('buurten', {});
-//d3.json("./data/cbs2013/buurten.topojson", function(error, data) {
-//  var areas = topojson.feature(data, data.objects.buurten);
-//  for (var i = 0; i < areas.features.length; i++ ){
-//	areas.features[i].id = i;
-//  }
-//  buurtlayer.data(areas.features);
-//  map.redraw();
-//});
+var buurtlayer = map.layers('buurten', {
+	type: 'path'
+});
+d3.json("./data/cbs2013/buurten.topojson", function(error, data) {
+  var areas = topojson.feature(data, data.objects.buurten);
+  for (var i = 0; i < areas.features.length; i++ ){
+	areas.features[i].id = i;
+  }
+  //buurtlayer.data(areas.features);
+  map.redraw();
+});
 
 
 
@@ -88,7 +106,8 @@ var waardesQuery = 'prefix ebif:<http://lod.geodan.nl/vocab/cerise-sg/ebif#>\
 	?meting ebif:measuredValue ?waarde . \
 	} \
 	order by ?tijd';
-var querymeter = function(meter){
+var querymeter = function(d){
+	var meter = d.meter;
 	var waardesQuery = 'prefix ebif:<http://lod.geodan.nl/vocab/cerise-sg/ebif#>\
 		select ?tijd ?waarde \
 		from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
@@ -111,8 +130,8 @@ var querymeter = function(meter){
 		  return { type: key, 
 				   val: _(g).reduce(function(m,x) { return m + parseFloat(x.waarde); }, 0) };
 		});
-		var graphdiv = d3.select('#graph');
-		var svg = graphdiv.select('svg');
+		var graphdiv = d3.select('#infobox').html('');
+		var svg = graphdiv.append('svg');
 		var x = d3.scale.linear().domain([0, response.length]).range([0, 1000]);
 		var y = d3.scale.linear().domain([0, 10]).range([200, 0]);
 		
@@ -127,7 +146,15 @@ var querymeter = function(meter){
 	});	
 }	
 
-var meterslayer = map.layers('meters', {type: 'point'});
+var meterinfo = function(d){
+	d3.select('#infobox').html(d.id);
+}
+
+var meterslayer = map.layers('meters', {
+	type: 'point',
+	onmouseover: meterinfo,
+	onclick: querymeter
+	});
 var query = encodeURI(sparqlEndpoint) + encodeURIComponent(gasmetersQuery);
 d3.csv(query, function(response){
 	var collection = {"type":"FeatureCollection","features":[]}; 
@@ -143,23 +170,6 @@ d3.csv(query, function(response){
 	});
 	meterslayer.data(collection.features);
 	map.redraw();
-	/*
-	var locations = d3.select('#map').select('g').selectAll('.location').data(response);
-	var newloc = locations.enter()
-		.append('circle')
-		.attr("transform", function(d){
-			return "translate(" + projection([d.x, d.y]) + ")";
-		})
-		.attr("r", 6)
-		.style("stroke-width", 3)
-		.style("stroke", "red")
-		.classed('location', true)
-		.attr('id', function(d){return d.meter; })
-		.on('click', function(d){querymeter(d.meter)});
-	*/
-	/*newdiv.html(function(d){
-		return  d.meter + '<br>' + d.straat + d.nummer + '-' + d.letter + '<br>' + d.postcode +  d.woonplaats + '<br><br>';
-	});*/
 });
 
 </script>
