@@ -1,0 +1,20 @@
+.background {
+  fill: none;
+  pointer-events: all;
+}
+
+.feature {
+  fill: none;
+  cursor: pointer;
+}
+
+.feature.active {
+  fill: orange;
+}
+
+.mesh {
+  fill: none;
+  stroke: #ccc;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
