@@ -4,13 +4,14 @@ lodui.map = function(id, config){
 	var self = this;
 	var active = d3.select(null);
 	var mapdiv = d3.select('#' + id);
+	this.tooltip = mapdiv.append('div').attr('id','maptooltip');
 	this.config = config;
 	this._layers = [];
 	
 	var center = config.center;
 	
-	var width = Math.max(960, window.innerWidth),
-		height = Math.max(500, window.innerHeight);
+	var width = document.getElementById('map').clientWidth, //Math.max(960, window.innerWidth),
+		height = Math.max(500, document.getElementById('map').clientHeight); //Math.max(500, window.innerHeight);
 	
 	var tile = d3.geo.tile()
     .size([width, height]);
@@ -29,7 +30,7 @@ lodui.map = function(id, config){
 	this.geoPath = geoPath;
 	var zoom = d3.behavior.zoom()
 		.scale(projection.scale() * 2 * Math.PI)
-		.scaleExtent([1 << 10, 1 << 24])
+		.scaleExtent([1 << 10, 1 << 26])
 		.translate([width - center[0], height - center[1]])
 		.on("zoom", redraw);
 	this.zoom = zoom;
@@ -78,8 +79,11 @@ lodui.map = function(id, config){
 		vector
 			.attr("transform", "translate(" + zoom.translate() + ")scale(" + zoom.scale() + ")")
 			.style("stroke-width", 1 / zoom.scale())
-		vector.selectAll('circle')
-			.attr('r',5 / zoom.scale());
+			//OBS: this is handled in the layer
+		//vector.selectAll('circle')
+		//	.attr('r',function(d){
+		//		return (d.r || 5) / zoom.scale();
+		//	});
 						
 		var image = raster
 			.attr("transform", "scale(" + tiles.scale + ")translate(" + tiles.translate + ")")
@@ -95,6 +99,11 @@ lodui.map = function(id, config){
 		  .attr("height", 1)
 		  .attr("x", function(d) { return d[0]; })
 		  .attr("y", function(d) { return d[1]; });
+		  
+		//redraw individual layers
+		for (var i = 0; i < self.layers().length; i++){
+			self.layers()[i].redraw();
+		}
 	}
 	this.redraw = redraw;
 	
@@ -106,6 +115,8 @@ lodui.map = function(id, config){
 	var raster = svg.append("g").attr('id', 'raster');	
 	var vector = svg.append("g").attr('id','vector');
 	this.vector = vector;
+	
+	
 }
 
 /** 

@@ -8,11 +8,20 @@
     <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 	<script src="http://d3js.org/d3.geo.tile.v0.min.js"></script>
     <script src="http://d3js.org/topojson.v1.min.js"></script>
+	<script src="./libs/nvd3.min.js"></script>
     <script src="./libs/queue.v1.min.js"></script>
 
+	<!-- Bootstrap -->
+	<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+	<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
+	<!--<script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>-->
+	
     <script src="./libs/underscore/underscore-min.js"></script>
 	<script src="./src/map.js"></script>
 	<script src="./src/layer.js"></script>
+	<script src="./src/queries.js"></script>
+	<script src="./src/dataprocessing.js"></script>
+	<link rel="stylesheet" href="./libs/nvd3.css" />
 	<link rel="stylesheet" href="./css/main.css" />
     
     <!-- CUSTOM--> 
@@ -28,31 +37,54 @@
 		fill-opacity: 0.2;
 		stroke: steelBlue;
 	}
-	#infobox {
+	circle {
+		fill: steelBlue;
+		stroke: steelBlue;
+		stroke-width: 1px;
+	}
+	.graph {
+		stroke: steelBlue;
+		fill: none;
+	}
+	
+	#maptooltip {
 		position: absolute;
-		top: 10px;
-		right: 10px;
-		width: 200px;
-		height: 200px;
-		background-color: white;
+	}
+	
+	#map {
+		height: 400px;
+	}
+	
+	#table {
+		height: 300px;
+		width: 50%;
+		overflow: auto;
+		padding: 40px;
 	}
    
     </style>
 </head>
 <body>
-<div id='map'></div>
-<div id="data"></div>
-<div id='graph'></div>
-<div id='infobox'>empty</div>
+<div id='controls' class="page-header">
+	<h1>Cerise demo app</h1>
+</div>
+<div class="row">
+
+	<div id='map' class="col-md-6"></div>
+	<div id='infobox' class="col-md-6">
+		Info
+	</div>
+</div>
+<div class="row">
+	<div id='table' class="col-md-6"></div>
+</div>
+
 
 <script>
 
 var map = new lodui.map('map', {center: [4.740008,52.892394]});
 
-var gemeentelayer = map.layers('gemeenten', {
-	type: 'path'
-});
-
+var gemeentelayer = map.layers('gemeenten', {});
 d3.json("./data/cbs2013/gemeenten.topojson", function(error, data) {
   var areas = topojson.feature(data, data.objects.gemeenten);
   for (var i = 0; i < areas.features.length; i++ ){
@@ -61,113 +93,72 @@ d3.json("./data/cbs2013/gemeenten.topojson", function(error, data) {
   //gemeentelayer.data(areas.features);
   map.redraw();
 });
-
-var buurtlayer = map.layers('buurten', {
-	type: 'path'
-});
-d3.json("./data/cbs2013/buurten.topojson", function(error, data) {
-  var areas = topojson.feature(data, data.objects.buurten);
-  for (var i = 0; i < areas.features.length; i++ ){
-	areas.features[i].id = i;
-  }
-  //buurtlayer.data(areas.features);
-  map.redraw();
-});
-
-
-
-d3.select('#graph').append('svg').attr('width',1000).attr('height',200);
-
-var sparqlEndpoint = 'http://lod.geodan.nl/sparql?format="text/csv"&query=';
-
-var gasmetersQuery = 'prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#> \
-	prefix locn: <http://www.w3.org/ns/locn#> \
-	prefix bag: <http://lod.geodan.nl/vocab/bag#> \
-	select ?meter ?woonplaats ?straat ?nummer ?letter ?postcode \
-	from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
-	where { \
-	?meter a ebif:GasMeter . \
-	?meter locn:address ?adres . \
-	?adres locn:addressArea ?woonplaats . \
-	?adres locn:thoroughfare ?straat . \
-	?adres locn:postCode ?postcode . \
-	?adres bag:huisnummer ?nummer . \
-	optional {?adres bag:huisletter ?letter .} \
-	} \
-	order by ?woonplaats ?straat ?nummer';
-
-var waardesQuery = 'prefix ebif:<http://lod.geodan.nl/vocab/cerise-sg/ebif#>\
-	select ?tijd ?waarde \
-	from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
-	where { \
-	?meting a ebif:Measurement . \
-	?meting ebif:meter <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/gmeter_klant43> . \
-	?meting ebif:time ?tijd . \
-	?meting ebif:measuredValue ?waarde . \
-	} \
-	order by ?tijd';
-var querymeter = function(d){
-	var meter = d.meter;
-	var waardesQuery = 'prefix ebif:<http://lod.geodan.nl/vocab/cerise-sg/ebif#>\
-		select ?tijd ?waarde \
-		from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
-		where { \
-		?meting a ebif:Measurement . \
-		?meting ebif:meter <'+meter+'> . \
-		?meting ebif:time ?tijd . \
-		?meting ebif:measuredValue ?waarde . \
-		} \
-		order by ?tijd';
-	var query = encodeURI(sparqlEndpoint) + encodeURIComponent(waardesQuery);
-	d3.csv(query, function(response){
 	
-		for (var i=0;i<response.length;i++){
-			rec = response[i];
-			rec.month = new Date(rec.tijd).getMonth();
-		}
-		var groups = _(response).groupBy('month');
-		var data = _(groups).map(function(g, key) {
-		  return { type: key, 
-				   val: _(g).reduce(function(m,x) { return m + parseFloat(x.waarde); }, 0) };
-		});
-		var graphdiv = d3.select('#infobox').html('');
-		var svg = graphdiv.append('svg');
-		var x = d3.scale.linear().domain([0, response.length]).range([0, 1000]);
-		var y = d3.scale.linear().domain([0, 10]).range([200, 0]);
-		
-		var line = d3.svg.line()
-			.x(function(d,i) { 
-				return x(parseInt(d.type)); 
-			})
-			.y(function(d) { 
-				return y(d.val); 
-			});
-		svg.append("svg:path").attr("d", line(data));
+var querymeter = function(d){
+	var meter = d.properties.meter;
+	var request_url = queries.getMeterValues(meter);
+	var address = d.properties;
+	var data = null;
+	d3.csv(request_url, function(response){
+		/* Prepare the data */
+		var processor = new lodui.dataprocessor();
+		var data = processor.data(response).filter('year', 2013).group('month').map('month', 'waarde').data();
+		d.r = data[0].y / 100;
+		map.redraw(); //that's 72 redraws.....
 	});	
 }	
 
-var meterinfo = function(d){
-	d3.select('#infobox').html(d.id);
+/** Show a tooltip with meterinfo **/
+var meterinfo = function(d,e){
+	var loc = d3.mouse(d3.select('#map')[0][0]);
+	var div = d3.select('#maptooltip');
+	div.style('left', loc[0] + 20 + 'px').style('top', loc[1] + 5 + 'px').html(d.id);
+	div.classed("mouseover label label-primary", true).style('display','block');
 }
 
+/** Define meters layer **/
 var meterslayer = map.layers('meters', {
 	type: 'point',
+	style: {
+		fill: 'red'
+	},
 	onmouseover: meterinfo,
-	onclick: querymeter
+	onclick: function(d, elem){
+		d3.selectAll('circle').style('fill','steelBlue');
+		d3.select(elem).style('fill', 'orange');
+		//querymeter(d);
+		}
 	});
-var query = encodeURI(sparqlEndpoint) + encodeURIComponent(gasmetersQuery);
-d3.csv(query, function(response){
+
+
+var queries = new lodui.queries();
+var request_url = queries.geocodedMeters();
+//Get a list of gas-meters
+d3.csv(request_url, function(response){
 	var collection = {"type":"FeatureCollection","features":[]}; 
 	response.forEach(function(d,i){
-		d.x =  4.740008 + Math.random()/100; //Points around Julianadorp
-		d.y = 52.892394 + Math.random()/100;
+		var coords = d.geom.replace('POINT(','').replace(')','').split(' ');
+		d.x = parseFloat(coords[0]);
+		d.y = parseFloat(coords[1]);
 		var feature = {
 			id: i,
 			type: 'Feature',
+			properties: d,
 			geometry: {type: 'Point', coordinates: [d.x, d.y]}
 		};
 		collection.features.push(feature);
+		querymeter(feature);
 	});
+	
+	//WORK IN PROGRESS:
+	var rows = d3.select('#table').classed('list-group', true).selectAll('.row').data(collection.features, function(d){return d.id});
+	var newrow = rows.enter().append('li').classed('row list-group-item', true);
+	newrow.html(function(d){
+			var address = d.properties;
+			return '<small>' + address.straat + ' ' + address.nummer + (address.letter || '' ) + address.woonplaats  + '</small>';
+		});
+	newrow.on('mouseover', function(d){})
+	rows.exit().remove();
 	meterslayer.data(collection.features);
 	map.redraw();
 });
