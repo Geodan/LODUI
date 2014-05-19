@@ -56,7 +56,7 @@ lodui.layer.prototype.redraw = function(){
 		else {
 			//recalc radius
 			entity.attr('r',function(d){
-				return (d.r || 0) / self._map.zoom.scale();
+				return (d.r || 5) / self._map.zoom.scale();
 			});
 		}
 		entity
@@ -76,7 +76,7 @@ lodui.layer.prototype.redraw = function(){
 			.on('click', clicked);
 	}
 	
-	d3.selectAll('.entity')
+	d3.select('#'+ this._id).selectAll('.entity')
 		.each(generic)
 		.each(styling);
 }

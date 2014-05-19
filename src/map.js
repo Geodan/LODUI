@@ -17,7 +17,7 @@ lodui.map = function(id, config){
     .size([width, height]);
 	
 	var projection = d3.geo.mercator()
-		.scale((1 << 20) / 2 / Math.PI)
+		.scale((1 << 22) / 2 / Math.PI)
 		.translate([width / 2, height / 2]);
 		
 	this.projection = projection;	
@@ -41,6 +41,8 @@ lodui.map = function(id, config){
     .translate([0, 0]);
 	
 	function clicked(d) {
+		console.warn('Click not implemented');
+	/*
 	  if (active.node() === this) return self.reset();
 	  active.classed("active", false);
 	  active = d3.select(this).classed("active", true);
@@ -56,6 +58,7 @@ lodui.map = function(id, config){
 	  svg.transition()
 		  .duration(750)
 		  .call(zoom.translate(translate).scale(scale).event);
+	*/
 	}
 	this.clicked = clicked;
 	function reset() {
@@ -79,11 +82,6 @@ lodui.map = function(id, config){
 		vector
 			.attr("transform", "translate(" + zoom.translate() + ")scale(" + zoom.scale() + ")")
 			.style("stroke-width", 1 / zoom.scale())
-			//OBS: this is handled in the layer
-		//vector.selectAll('circle')
-		//	.attr('r',function(d){
-		//		return (d.r || 5) / zoom.scale();
-		//	});
 						
 		var image = raster
 			.attr("transform", "scale(" + tiles.scale + ")translate(" + tiles.translate + ")")

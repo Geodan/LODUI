@@ -8,6 +8,9 @@
     <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 	<script src="http://d3js.org/d3.geo.tile.v0.min.js"></script>
     <script src="http://d3js.org/topojson.v1.min.js"></script>
+	<script src="./libs/crossfilter.js"></script>
+	<script src="./libs/d3.slider.js"></script>
+	<link rel="stylesheet" href="./libs/d3.slider.css"></link>
 	<script src="./libs/nvd3.min.js"></script>
     <script src="./libs/queue.v1.min.js"></script>
 
@@ -15,6 +18,10 @@
 	<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
 	<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
 	<!--<script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>-->
+	
+	<!-- X3DOM -->
+	<link rel="stylesheet" type="text/css" href="http://x3dom.org/download/dev/x3dom.css" />
+	<script type="text/javascript" src="http://x3dom.org/download/dev/x3dom-full.js"></script>
 	
     <script src="./libs/underscore/underscore-min.js"></script>
 	<script src="./src/map.js"></script>
@@ -52,7 +59,7 @@
 	}
 	
 	#map {
-		height: 400px;
+		height: 500px;
 	}
 	
 	#table {
@@ -60,6 +67,15 @@
 		width: 50%;
 		overflow: auto;
 		padding: 40px;
+		display: none; /* DISABLED */
+	}
+	
+	#slider {
+		position: absolute;
+		width: 80%;
+		margin-left: 100px;
+		height: 100px;
+		z-index: 100;
 	}
    
     </style>
@@ -70,18 +86,74 @@
 </div>
 <div class="row">
 
-	<div id='map' class="col-md-6"></div>
-	<div id='infobox' class="col-md-6">
+	<div id="webgl"></div>
+	
+	<div id='map' class="col-md-10">
+		
+	</div>
+	<div id='infobox' class="col-md-2">
 		Info
 	</div>
 </div>
+<div id='slider'></div>
 <div class="row">
+	
 	<div id='table' class="col-md-6"></div>
 </div>
 
+<script src="./src/x3d_map.js"></script>
 
 <script>
 
+var aggregator = 'month';	
+
+var format = d3.time.format("%Y-%m-%d");
+var axis = d3.svg.axis().tickFormat(function(d){ 
+	//return format(new Date(d*60000));
+	return d;
+});
+var starttime = 1335830400000;
+var endtime = 1371859200000;
+var step = 24 * 60 * 60 * 1000; //day * hr * sec * ms
+var scale = d3.scale.linear().domain([starttime, endtime]).range([0,(endtime - starttime)/step]);
+var slider = d3.slider()
+	.axis(axis)
+	.value((starttime))
+	.min(starttime).max(endtime).step(step)
+	.on("slide", function(evt, value) {
+		var time = new Date(value);
+		console.log(time);
+		var index = scale(value);
+		//Calculate the radius for the meters
+		d3.select('#meters').selectAll('circle').each(function(d){
+			if (d.data && d.data.length > 0 && d.bydaymeasure[index]){
+				var sum = d.bydaymeasure[index].value;
+			}
+			else {
+				var sum = 0;
+			}
+			d3.select('#infobox').html(time);
+			d.r = sum + 5; //5 is the minimum for a circle
+		});
+		//Calculate the radius for the weatherstations
+		d3.select('#weather').selectAll('circle').each(function(d){
+			
+		});
+		
+		
+		map.redraw(); 
+    });
+
+d3.select('#slider').call(slider).selectAll('text')
+	.style("text-anchor", "end")
+    .attr("dx", "-.8em")
+    .attr("dy", ".15em")
+    .attr("transform", function(d) {
+        return "rotate(-65)" 
+    });
+
+
+/*	
 var map = new lodui.map('map', {center: [4.740008,52.892394]});
 
 var gemeentelayer = map.layers('gemeenten', {});
@@ -93,20 +165,33 @@ d3.json("./data/cbs2013/gemeenten.topojson", function(error, data) {
   //gemeentelayer.data(areas.features);
   map.redraw();
 });
-	
+*/
 var querymeter = function(d){
 	var meter = d.properties.meter;
 	var request_url = queries.getMeterValues(meter);
 	var address = d.properties;
 	var data = null;
+	var processor = new lodui.dataprocessor();
 	d3.csv(request_url, function(response){
-		/* Prepare the data */
-		var processor = new lodui.dataprocessor();
-		var data = processor.data(response).filter('year', 2013).group('month').map('month', 'waarde').data();
-		d.r = data[0].y / 100;
-		map.redraw(); //that's 72 redraws.....
+		d.data = response;
+		var cf = crossfilter(response);
+		d.byday = cf.dimension(function(d) { return d3.time.day(new Date(d.tijd)); })
+		d.bydaymeasure = d.byday.group().reduceSum(function(d){return d.waarde;}).all();
+
+		//d.bytime = cf.dimension(function(d){return new Date(d.tijd).getTime();}); 
+		//d.byvalue = cf.dimension(function(d){return d.waarde;}); 
+		//d.agg = processor.data(response).filter('year', 2013).group('month').map('month', 'waarde').data();
 	});	
-}	
+}
+
+var getWeatherData = function(){
+	d3.csv('./data/weerstations_hourly.csv', function(d){
+		d.data = response;
+		var cf = crossfilter(response);
+		d.byday = cf.dimension(function(d){ return d.YYYYMMDD});
+		d.bydaymeasure = d.byday.group().reduceSum(function(d){return d.T;}).all();
+	});
+}
 
 /** Show a tooltip with meterinfo **/
 var meterinfo = function(d,e){
@@ -116,7 +201,35 @@ var meterinfo = function(d,e){
 	div.classed("mouseover label label-primary", true).style('display','block');
 }
 
+/** Define weatherstation layer **/
+/*
+var weatherlayer = map.layers('weather', {
+	type: 'point',
+	style: {
+		fill: 'yellow'
+	}
+});
+d3.csv('./data/weerstations.csv', function(response){
+	var collection = {"type":"FeatureCollection","features":[]}; 
+	response.forEach(function(d,i){
+		d.x = parseFloat(d.LON);
+		d.y = parseFloat(d.LAT);
+		var feature = {
+			id: d.STN,
+			type: 'Feature',
+			properties: d,
+			geometry: {type: 'Point', coordinates: [d.x, d.y]}
+		};
+		collection.features.push(feature);
+	});
+	//Now load the big file with weatherdata
+	//getWeatherData();
+	weatherlayer.data(collection.features);
+	map.redraw();
+});
+*/
 /** Define meters layer **/
+/*
 var meterslayer = map.layers('meters', {
 	type: 'point',
 	style: {
@@ -128,13 +241,13 @@ var meterslayer = map.layers('meters', {
 		d3.select(elem).style('fill', 'orange');
 		//querymeter(d);
 		}
-	});
+});
 
 
 var queries = new lodui.queries();
 var request_url = queries.geocodedMeters();
-//Get a list of gas-meters
-d3.csv(request_url, function(response){
+//Get a list of gas-meters (TT: removed request_url for now because it takes 6 secs.)
+d3.csv('./data/meters.csv', function(response){
 	var collection = {"type":"FeatureCollection","features":[]}; 
 	response.forEach(function(d,i){
 		var coords = d.geom.replace('POINT(','').replace(')','').split(' ');
@@ -162,7 +275,7 @@ d3.csv(request_url, function(response){
 	meterslayer.data(collection.features);
 	map.redraw();
 });
-
+*/
 </script>
 
 </body>

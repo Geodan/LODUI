@@ -26,13 +26,14 @@ lodui.dataprocessor.prototype.data = function(data){
 		}
 		
 		//Get metadata
-		var kys = _(this._data[0]).keys();
-		_(kys).each(function(key,i){
-			var max = _.max(self._data, function(d){return d[key];})[key];
-			var min = _.min(self._data, function(d){return d[key];})[key];
-			self._meta.push({name: key, min: min, max: max});
-		});
-		
+		if (this.data[0]) { //check, some return emtpy data
+			var kys = _(this._data[0]).keys();
+			_(kys).each(function(key,i){
+				var max = _.max(self._data, function(d){return d[key];})[key];
+				var min = _.min(self._data, function(d){return d[key];})[key];
+				self._meta.push({name: key, min: min, max: max});
+			});
+		}
 		return this;
 	}
 }
