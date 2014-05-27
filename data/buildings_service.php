@@ -27,6 +27,7 @@ footprints AS (
 	AND ST_Area(a.geometrie_28992) > 30
 	--AND gebw_type = 'p'
 	AND status = 4 --'Pand in gebruik'
+	AND ST_Intersects(a.geometrie_28992, b.geom)
 	AND ST_Intersects(ST_Centroid(a.geometrie_28992), b.geom)
 	AND eind_geldigheid Is Null
 	--AND ogc_fid = 24713 --debug
@@ -70,7 +71,7 @@ stats_fast AS (
 ),
 polygons AS (
 	SELECT id, ST_Extrude(ST_Tesselate(ST_Translate(footprint,0,0, min)), 0,0,max-min) geom FROM stats_fast
-	--SELECT ST_Tesselate(ST_Translate(footprint,0,0, min + 20)) geom FROM stats_fast
+	--SELECT id, replace(replace(ST_AsText(ST_Force2D(footprint)),'POLYGON((',''),'))','')  geom FROM stats_fast
 )
 SELECT id,'building' as type, 'orange' as color, ST_AsX3D(polygons.geom,2)
 FROM polygons

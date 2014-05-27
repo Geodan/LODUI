@@ -233,11 +233,11 @@ div.append('button').on('click', function(){
     
 	
     ns.ThreeDMap.prototype.bbox2tiles = function (bounds) {
-		//var tilesize = 200;
+		var tilesize = 100;
 		
 		var width = bounds.maxx - bounds.minx;
 		var height = bounds.maxy - bounds.miny;
-		tilesize = 1000000000 / (width * height); //makes 100 meter tiles for 1X1 km
+		//tilesize = 10000000 / (width * height); //makes 100 meter tiles for 1X1 km
 		var nx = Math.ceil(width/tilesize);
 		var ny = Math.ceil(height/tilesize);
 		this.cycle = 0;
@@ -276,8 +276,15 @@ div.append('button').on('click', function(){
 			.on('click',function(d){
 				console.log(d);
 			})
-			.html(function(d){return d.geom});
-		
+			.html(function(d){
+				if (d.type != 'buildingxx'){
+					return d.geom;
+				}
+				else { //Handle building extrusion
+					var shape = '<extrusion DEF="HULL" crossSection="' + d.geom + '" solid=false scale="1 1, 1 1 , 0.2 0.2" spine="0 0 0 , 0 0 0 , 0 0 0.01">';
+					return shape;
+				}
+			});
 		var appearance = newshape.append("Appearance").each(function(x){
 			d3.select(this)
 		//appearance.append("Material").attr('emissiveColor', function(d){return d.color;});
@@ -309,9 +316,9 @@ div.append('button').on('click', function(){
         height: 800,
         demWidth: getQueryVariable("WIDTH") || 100,
         demHeight: getQueryVariable("HEIGHT") || 250, //TT: trick to get the textures aligned along the longest side. TODO: find out what the effect on the tiles is
-        //bbox: getQueryVariable("BBOX") || '188045,428786, 188411,429044', //klein stukje nijmegen (Valkhof)
+        bbox: getQueryVariable("BBOX") || '188045,428786, 188411,429044', //klein stukje nijmegen (Valkhof)
         //bbox: getQueryVariable("BBOX") || '188000,428500,189000,429500',
-		bbox: getQueryVariable("BBOX") || '110500,544000,111500,544000', //Julianadorp
+		//bbox: getQueryVariable("BBOX") || '110500,544000,111500,544500', //Julianadorp
 		metersWidth: 0,
         metersHeight: 0,
         minx: 0,

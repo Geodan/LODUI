@@ -55,7 +55,7 @@ lodui.layer.prototype.redraw = function(){
 		}
 		else {
 			//recalc radius
-			entity.attr('r',function(d){
+			entity.transition().attr('r',function(d){
 				return (d.r || 5) / self._map.zoom.scale();
 			});
 		}

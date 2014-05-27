@@ -33,6 +33,9 @@
     
     <!-- CUSTOM--> 
     <style>
+	html, body {
+		height: 100%;
+	}
 	#gemeenten {
 		fill: black;
 		fill-opacity: 0.4;
@@ -59,7 +62,31 @@
 	}
 	
 	#map {
-		height: 500px;
+		height: 100%;
+	}
+	
+	#leftoverlay {
+		position: absolute;
+		top: 30px;
+		left: 50px;
+		z-index: 100;
+	}
+	
+	#rightoverlay {
+		position: absolute;
+		top: 30px;
+		width: 250px;
+		right: 50px;
+		z-index: 100;
+	}
+	
+	#bottomoverlay {
+		position: absolute;
+		bottom: 0px;
+		left: 50px;
+		width: 100%;
+		height: 300px;
+		z-index: 100;
 	}
 	
 	#table {
@@ -71,38 +98,63 @@
 	}
 	
 	#slider {
-		position: absolute;
-		width: 80%;
-		margin-left: 100px;
-		height: 100px;
+		position: relative;
+		width: 90%;
+		margin-left: 0px;
+		height: 30px;
 		z-index: 100;
+	}
+	
+	#zon {
+		top: 100px;
+		left: 100px;
+	}
+	
+	#temp {
+		top: 100px;
+		color: white;
 	}
    
     </style>
 </head>
 <body>
+<!--
 <div id='controls' class="page-header">
 	<h1>Cerise demo app</h1>
 </div>
+-->
 <div class="row">
 
 	<div id="webgl"></div>
 	
-	<div id='map' class="col-md-10">
-		
+	<div id='map' class="col-md-12">
+		<div id='rightoverlay'>
+			<div id='weatherstatus' class='label label-default'>Weatherdata loading...</div>
+			<br>
+			<div id='meterstatus' class='label label-default'>Meterdata loading...</div>
+		</div>	
+		<div id='leftoverlay'>
+			
+		</div>	
+		<div id='bottomoverlay'>
+			<span class='glyphicon glyphicon-time'></span><div id='infobox' ></div>
+			<div id='chart'> 
+				<svg style='height:200px'> </svg>
+			</div>
+		</div>
 	</div>
-	<div id='infobox' class="col-md-2">
-		Info
-	</div>
-</div>
-<div id='slider'></div>
-<div class="row">
 	
+		
+	
+		
+	
+</div>
+<div class="row">
 	<div id='table' class="col-md-6"></div>
 </div>
-
+<!--
 <script src="./src/x3d_map.js"></script>
-
+-->
 <script>
 
 var aggregator = 'month';	
@@ -114,47 +166,118 @@ var axis = d3.svg.axis().tickFormat(function(d){
 });
 var starttime = 1335830400000;
 var endtime = 1371859200000;
-var step = 24 * 60 * 60 * 1000; //day * hr * sec * ms
-var scale = d3.scale.linear().domain([starttime, endtime]).range([0,(endtime - starttime)/step]);
-var slider = d3.slider()
-	.axis(axis)
-	.value((starttime))
-	.min(starttime).max(endtime).step(step)
-	.on("slide", function(evt, value) {
-		var time = new Date(value);
-		console.log(time);
-		var index = scale(value);
-		//Calculate the radius for the meters
-		d3.select('#meters').selectAll('circle').each(function(d){
-			if (d.data && d.data.length > 0 && d.bydaymeasure[index]){
-				var sum = d.bydaymeasure[index].value;
-			}
-			else {
-				var sum = 0;
-			}
-			d3.select('#infobox').html(time);
-			d.r = sum + 5; //5 is the minimum for a circle
-		});
-		//Calculate the radius for the weatherstations
-		d3.select('#weather').selectAll('circle').each(function(d){
-			
-		});
-		
-		
-		map.redraw(); 
-    });
+var daystep = 24 * 60 * 60 * 1000; //day * hr * sec * ms
+var hourstep = 60 * 60 * 1000;
+var timestep = daystep;
+var scale = d3.scale.linear().domain([starttime, endtime]).range([0,(endtime - starttime)/timestep]);
+var weatherT0 = 1325372400000; //01 jan 2012 00:00
+var weatherTMax = 1388527200000; //31 dec. 2013 23:00
 
-d3.select('#slider').call(slider).selectAll('text')
-	.style("text-anchor", "end")
-    .attr("dx", "-.8em")
-    .attr("dy", ".15em")
-    .attr("transform", function(d) {
-        return "rotate(-65)" 
-    });
+var timescale_weather = d3.scale.linear().domain([weatherT0, weatherTMax]).range([0,(weatherTMax - weatherT0)/timestep]);
 
-
-/*	
 var map = new lodui.map('map', {center: [4.740008,52.892394]});
+var colorscale = d3.scale.linear().domain([-5,20]).range([0,255]);
+var timechange = function(){
+	var value = slider.valueAsNumber;
+	var time = new Date(value);
+	//console.log(time);
+	var index = scale(value) >>> 0;
+	//Calculate the radius for the meters
+	d3.select('#meters').selectAll('circle').each(function(d){
+		if (d.data && d.data.length > 0 && d.activemeasure[index]){
+			var sum = d.activemeasure[index].value;	
+		}
+		else {
+			var sum = 0;
+		}
+		d.sum = sum;
+		d.r = (sum * 10) + 2; //2 is the minimum for a circle
+	});
+	//Calculate the radius for the weatherstations
+	var index = timescale_weather(value) >>> 0;
+	var temp = Math.round(weatherdata.tempmeasure[index].value);
+	var sun = Math.round(weatherdata.sunmeasure[index].value);
+	
+	var size =  Math.abs(sun);
+	d3.select('#zon').transition().duration(50)
+		.style('width', size + 'px')
+		.style('height',size  + 'px')
+		.style('top', 200 - size / 2 + 'px')
+		.style('left',100 - size / 2 + 'px');
+	
+	d3.select('#temp').transition().duration(50)
+		.style('width',(temp) + 'px').style('background', 'rgb('+colorscale(temp)+',0,0)');
+	d3.select('#temp').html(temp + ' deg');
+	
+	d3.select('#infobox').html(time + ' temperature: ' + temp + ' sun Q: ' + sun);
+	map.redraw(); 
+}
+
+var timeslider = d3.select('#bottomoverlay').append('input').attr('id','slider')
+	.attr('type','range').attr('min', starttime).attr('max', endtime).attr('value',starttime).attr('step', daystep )
+	.on('input',timechange)
+	.on('change', timechange);
+var slider = timeslider[0][0];
+
+var intervalSelector = d3.select('#rightoverlay').append('select').classed('form-control',true).style('width','100px');
+intervalSelector.append('option').attr('value',daystep).html('day');
+intervalSelector.append('option').attr('value',hourstep).html('hour');
+intervalSelector.on('change', function(d){
+	var self = this;
+	timestep = this.value;
+	scale = d3.scale.linear().domain([starttime, endtime]).range([0,(endtime - starttime)/this.value]);
+	timescale_weather = d3.scale.linear().domain([weatherT0, weatherTMax]).range([0,(weatherTMax - weatherT0)/this.value]);
+	d3.select('#meters').selectAll('circle').each(function(d){
+		if (self.value == hourstep){
+			d.activemeasure = d.byhourmeasure;
+		}
+		else if (self.value == daystep) {
+			d.activemeasure = d.bydaymeasure;
+		};
+	});
+	if (this.value == hourstep){
+		weatherdata.sunmeasure = weatherdata.byhoursun;
+		weatherdata.tempmeasure = weatherdata.byhourtemperature;
+	}
+	else if (this.value == daystep) {
+		weatherdata.sunmeasure = weatherdata.bydaysun;
+		weatherdata.tempmeasure = weatherdata.bydaytemperature;
+	};
+	
+	timeslider.attr('step',parseInt(this.value));
+	
+	var data = [{
+		"key": "Sun",
+		"values": []
+	},{
+		"key": "Temp",
+		"values": []
+	}];
+	//Map the values so we can use them in the graph
+	data[0].values = weatherdata.sunmeasure.map(function(d){return [d.key, d.value]});
+	data[1].values = weatherdata.tempmeasure.map(function(d){return [d.key, d.value]});
+	addGraphs(data);
+});
+
+var playinterval;
+var playbutton = d3.select('#rightoverlay').append('button').classed('btn btn-primary',true).on('click', function(){
+	var slider = timeslider[0][0];
+	slider.value = starttime;
+	playinterval = window.setInterval(
+		function(){
+			if (slider.valueAsNumber > endtime){
+				slider.value = starttime;
+			}
+			slider.stepUp(1);
+			timechange();
+		}
+	,500);
+}).html('Play');
+var stopbutton = d3.select('#rightoverlay').append('button').classed('btn btn-default',true).on('click', function(){
+	clearInterval(playinterval);
+}).html('Stop');
+
+
 
 var gemeentelayer = map.layers('gemeenten', {});
 d3.json("./data/cbs2013/gemeenten.topojson", function(error, data) {
@@ -165,31 +288,121 @@ d3.json("./data/cbs2013/gemeenten.topojson", function(error, data) {
   //gemeentelayer.data(areas.features);
   map.redraw();
 });
-*/
+var tmp;
+var loadedMeters = 0;
 var querymeter = function(d){
 	var meter = d.properties.meter;
 	var request_url = queries.getMeterValues(meter);
 	var address = d.properties;
 	var data = null;
-	var processor = new lodui.dataprocessor();
+	//Add 
 	d3.csv(request_url, function(response){
+		loadedMeters++;
 		d.data = response;
 		var cf = crossfilter(response);
-		d.byday = cf.dimension(function(d) { return d3.time.day(new Date(d.tijd)); })
-		d.bydaymeasure = d.byday.group().reduceSum(function(d){return d.waarde;}).all();
 
-		//d.bytime = cf.dimension(function(d){return new Date(d.tijd).getTime();}); 
-		//d.byvalue = cf.dimension(function(d){return d.waarde;}); 
-		//d.agg = processor.data(response).filter('year', 2013).group('month').map('month', 'waarde').data();
+		d.bymonth = cf.dimension(function(d) { return d3.time.month(new Date(d.tijd)); });
+		d.byweek = cf.dimension(function(d) { return d3.time.week(new Date(d.tijd)); });
+		d.byday = cf.dimension(function(d) { return d3.time.day(new Date(d.tijd)); });
+		d.byhour = cf.dimension(function(d) { return d.tijd;});
+		
+		d.bydaymeasure = d.byday.group().reduceSum(function(d){return d.waarde / 24;}).all();
+		d.byhourmeasure = d.byhour.group().reduceSum(function(d){return d.waarde;}).all();
+		d.activemeasure = d.bydaymeasure;
+		//Check if all meters are loaded
+		if (numMeters == loadedMeters){
+			d3.select('#meterstatus').classed('label-default',false).classed('label-success',true).html('Meterdata loaded');
+		}
 	});	
 }
 
+var addGraphs  = function(data){
+		nv.addGraph(function() {
+		  var chart = nv.models.lineWithFocusChart()
+					.x(function(d) { return d[0] })
+					.y(function(d) { return d[1] }) //adjusting, 100% is 1.00, not 100 as it is in the data
+					.color(d3.scale.category10().range())
+					//.useInteractiveGuideline(true)
+					  ;
+
+		  chart.xAxis
+			.tickValues([1335830400000,1371859200000])
+			.tickFormat(function(d) {
+				return d3.time.format('%x')(new Date(d))
+			  });
+		
+		chart.x2Axis
+			.tickValues([1335830400000,1371859200000])
+			.tickFormat(function(d) {
+				return d3.time.format('%x')(new Date(d))
+			  });	  
+
+		  chart.yAxis
+			  .tickFormat(d3.format(',.2f'));
+
+		  chart.y2Axis
+			  .tickFormat(d3.format(',.2f'));
+
+		  d3.select('#chart svg')
+			  .datum(data)
+			  .transition().duration(500)
+			  .call(chart);
+
+		  nv.utils.windowResize(chart.update);
+
+		  return chart;
+		});
+}
+
+var weatherdata = {};
+var weathergraph = null;
 var getWeatherData = function(){
-	d3.csv('./data/weerstations_hourly.csv', function(d){
+	d3.csv('./data/weatherstations_hourly.csv', function(response){
+		var d = weatherdata;
 		d.data = response;
 		var cf = crossfilter(response);
-		d.byday = cf.dimension(function(d){ return d.YYYYMMDD});
-		d.bydaymeasure = d.byday.group().reduceSum(function(d){return d.T;}).all();
+		d.bystation = cf.dimension(function(d){ return d.STN});
+		d.bystation.filter(210); //only station 210 for now
+		d.byday = cf.dimension(function(d){ 
+			var string = d.YYYYMMDD;
+			var year = string.substr(0,4);
+			var month = string.substr(4,2);
+			var day = string.substr(6,2);
+			var date = new Date(year, month, day).getTime();
+			return date;
+		});
+		d.byhour = cf.dimension(function(d){
+			//Trick to add zero padding to hour so it orders correctly
+			var string = d.YYYYMMDD;
+			var year = string.substr(0,4);
+			var month = string.substr(4,2);
+			var day = string.substr(6,2);
+			var hour = parseInt(d.HH);
+			var date = new Date(year, month, day,hour).getTime();
+			return date;
+		});
+		d.bydaytemperature = d.byday.group().reduceSum(function(d){return d.T / 24;}).all();
+		d.bydaysun = d.byday.group().reduceSum(function(d){return d.Q / 24;}).all();
+		d.byhourtemperature = d.byhour.group().reduceSum(function(d){return d.T;}).all();
+		d.byhoursun = d.byhour.group().reduceSum(function(d){return d.Q;}).all();
+		d.sunmeasure = d.bydaysun;
+		d.tempmeasure = d.bydaytemperature;
+		
+		d3.select('#weatherstatus').classed('label-default',false).classed('label-success',true).html('Weatherdata loaded');
+		zon = d3.select('#leftoverlay').append('img').attr('id','zon').attr('src','./zon2.svg').attr('width',100).attr('height',100).style('position','absolute').style('left','50px');
+		temp = d3.select('#leftoverlay').append('div').attr('id', 'temp').style('position', 'absolute').style('left','20px').style('width','10px').style('height','20px');
+		
+		var data = [{
+			"key": "Sun",
+			"values": []
+		},{
+			"key": "Temp",
+			"values": []
+		}];
+		//Map the values so we can use them in the graph
+		data[0].values = weatherdata.sunmeasure.map(function(d){return [d.key, d.value]});
+		data[1].values = weatherdata.tempmeasure.map(function(d){return [d.key, d.value]});
+		addGraphs(data);
 	});
 }
 
@@ -197,14 +410,18 @@ var getWeatherData = function(){
 var meterinfo = function(d,e){
 	var loc = d3.mouse(d3.select('#map')[0][0]);
 	var div = d3.select('#maptooltip');
-	div.style('left', loc[0] + 20 + 'px').style('top', loc[1] + 5 + 'px').html(d.id);
+	div.style('left', loc[0] + 20 + 'px').style('top', loc[1] + 5 + 'px').html(d.sum + ' m3 gas');
 	div.classed("mouseover label label-primary", true).style('display','block');
 }
 
 /** Define weatherstation layer **/
-/*
+
 var weatherlayer = map.layers('weather', {
 	type: 'point',
+	labels: true,
+	labelconfig: {
+		field: 'label'
+	},
 	style: {
 		fill: 'yellow'
 	}
@@ -223,13 +440,13 @@ d3.csv('./data/weerstations.csv', function(response){
 		collection.features.push(feature);
 	});
 	//Now load the big file with weatherdata
-	//getWeatherData();
+	getWeatherData();
 	weatherlayer.data(collection.features);
 	map.redraw();
 });
-*/
+
 /** Define meters layer **/
-/*
+
 var meterslayer = map.layers('meters', {
 	type: 'point',
 	style: {
@@ -246,9 +463,11 @@ var meterslayer = map.layers('meters', {
 
 var queries = new lodui.queries();
 var request_url = queries.geocodedMeters();
+var numMeters = 0;
 //Get a list of gas-meters (TT: removed request_url for now because it takes 6 secs.)
 d3.csv('./data/meters.csv', function(response){
-	var collection = {"type":"FeatureCollection","features":[]}; 
+	var collection = {"type":"FeatureCollection","features":[]};
+	numMeters = response.length; //user later to see if all meters are loaded
 	response.forEach(function(d,i){
 		var coords = d.geom.replace('POINT(','').replace(')','').split(' ');
 		d.x = parseFloat(coords[0]);
@@ -275,7 +494,7 @@ d3.csv('./data/meters.csv', function(response){
 	meterslayer.data(collection.features);
 	map.redraw();
 });
-*/
+
 </script>
 
 </body>
