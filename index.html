@@ -8,15 +8,34 @@
     <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 	<script src="http://d3js.org/d3.geo.tile.v0.min.js"></script>
     <script src="http://d3js.org/topojson.v1.min.js"></script>
+	<script src="./libs/crossfilter.js"></script>
+	<script src="./libs/d3.slider.js"></script>
+	<link rel="stylesheet" href="./libs/d3.slider.css"></link>
+	<script src="http://cdnjs.cloudflare.com/ajax/libs/nvd3/1.1.15-beta/nv.d3.min.js"></script>
     <script src="./libs/queue.v1.min.js"></script>
 
+	<!-- Bootstrap -->
+	<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+	<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
+	<!--<script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>-->
+	
+	<!-- X3DOM -->
+	<link rel="stylesheet" type="text/css" href="http://x3dom.org/download/dev/x3dom.css" />
+	<script type="text/javascript" src="http://x3dom.org/download/dev/x3dom-full.js"></script>
+	
     <script src="./libs/underscore/underscore-min.js"></script>
 	<script src="./src/map.js"></script>
 	<script src="./src/layer.js"></script>
+	<script src="./src/queries.js"></script>
+	<script src="./src/dataprocessing.js"></script>
+	<link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/nvd3/1.1.15-beta/nv.d3.min.css" />
 	<link rel="stylesheet" href="./css/main.css" />
     
     <!-- CUSTOM--> 
     <style>
+	html, body {
+		height: 100%;
+	}
 	#gemeenten {
 		fill: black;
 		fill-opacity: 0.4;
@@ -28,31 +47,262 @@
 		fill-opacity: 0.2;
 		stroke: steelBlue;
 	}
-	#infobox {
+	circle {
+		fill: steelBlue;
+		stroke: steelBlue;
+		stroke-width: 1px;
+	}
+	.graph {
+		stroke: steelBlue;
+		fill: none;
+	}
+	
+	.maptooltip {
 		position: absolute;
-		top: 10px;
-		right: 10px;
-		width: 200px;
-		height: 200px;
-		background-color: white;
+	}
+	
+	#map {
+		height: 100%;
+	}
+	
+	#leftoverlay {
+		position: absolute;
+		top: 30px;
+		left: 50px;
+		z-index: 100;
+	}
+	
+	#rightoverlay {
+		position: absolute;
+		top: 30px;
+		width: 250px;
+		right: 50px;
+		z-index: 100;
+	}
+	
+	#bottomoverlay {
+		position: absolute;
+		bottom: 0px;
+		left: 50px;
+		width: 100%;
+		height: 300px;
+		z-index: 100;
+	}
+	
+	#table {
+		height: 300px;
+		width: 50%;
+		overflow: auto;
+		padding: 40px;
+		display: none; /* DISABLED */
+	}
+	
+	#slider {
+		position: relative;
+		width: 90%;
+		margin-left: 0px;
+		height: 30px;
+		z-index: 100;
+	}
+	
+	#zon {
+		top: 100px;
+		left: 100px;
+	}
+	
+	#temp {
+		top: 100px;
+		color: white;
 	}
    
     </style>
 </head>
 <body>
-<div id='map'></div>
-<div id="data"></div>
-<div id='graph'></div>
-<div id='infobox'>empty</div>
+<!--
+<div id='controls' class="page-header">
+	<h1>Cerise demo app</h1>
+</div>
+-->
+<div class="row">
 
+	<div id="webgl"></div>
+	
+	<div id='map' class="col-md-12">
+		<div id='rightoverlay'>
+			<div id='weatherstatus' class='label label-default'>Weatherdata loading...</div>
+			<br>
+			<div id='meterstatus' class='label label-default'>Meterdata loading...</div>
+		</div>	
+		<div id='leftoverlay'>
+			
+		</div>	
+		<div id='bottomoverlay'>
+			<span class='glyphicon glyphicon-time'></span><div id='infobox' ></div>
+			<div id='chart'> 
+				<svg style='height:200px'> </svg>
+			</div>
+		</div>
+	</div>
+	
+		
+	
+		
+	
+</div>
+<div class="row">
+	<div id='table' class="col-md-6"></div>
+</div>
+<!--
+<script src="./src/x3d_map.js"></script>
+-->
 <script>
 
-var map = new lodui.map('map', {center: [4.740008,52.892394]});
+var aggregator = 'month';	
 
-var gemeentelayer = map.layers('gemeenten', {
-	type: 'path'
+var format = d3.time.format("%Y-%m-%d");
+var axis = d3.svg.axis().tickFormat(function(d){ 
+	//return format(new Date(d*60000));
+	return d;
+});
+var starttime = 1335830400000;
+var endtime = 1371859200000;
+//FIXME: month and week are incorrect
+var monthstep = 30 * 24 * 60 * 60 * 1000; //day * hr * sec * ms
+var weekstep = 7 * 24 * 60 * 60 * 1000; //day * hr * sec * ms
+var daystep = 24 * 60 * 60 * 1000; //day * hr * sec * ms
+var hourstep = 60 * 60 * 1000;
+var timestep = daystep;
+var scale = d3.scale.linear().domain([starttime, endtime]).range([0,(endtime - starttime)/timestep]);
+var weatherT0 = 1325372400000; //01 jan 2012 00:00
+var weatherTMax = 1388527200000; //31 dec. 2013 23:00
+
+var timescale_weather = d3.scale.linear().domain([weatherT0, weatherTMax]).range([0,(weatherTMax - weatherT0)/timestep]);
+
+var map = new lodui.map('map', {center: [4.740008,52.892394]});
+var colorscale = d3.scale.linear().domain([-5,20]).range([0,255]);
+var timechange = function(timestamp){
+	//var value = slider.valueAsNumber;
+	var value = timestamp;
+	var time = new Date(value);
+	//console.log(time);
+	var index = Math.round(scale(value));
+	//Calculate the radius for the meters
+	d3.select('#meters').selectAll('circle').each(function(d){
+		if (d.data && d.data.length > 0 && d.activemeasure[index]){
+			var sum = d.activemeasure[index].value;	
+		}
+		else {
+			var sum = 0;
+		}
+		d.sum = sum;
+		d.r = (sum * 50) + 2; //2 is the minimum for a circle
+	});
+	//Calculate the radius for the weatherstations
+	var index = Math.round(timescale_weather(value));
+	var temp = Math.round(weatherdata.tempmeasure[index].value);
+	var sun = Math.round(weatherdata.sunmeasure[index].value);
+	
+	var size =  Math.abs(sun);
+	d3.select('#zon').transition().duration(50)
+		.style('width', size + 'px')
+		.style('height',size  + 'px')
+		.style('top', 200 - size / 2 + 'px')
+		.style('left',100 - size / 2 + 'px');
+	
+	d3.select('#temp').transition().duration(50)
+		.style('width',(temp) + 'px').style('background', 'rgb('+colorscale(temp)+',0,0)');
+	d3.select('#temp').html((temp/10) + ' deg');
+	
+	d3.select('#infobox').html(time + ' temperature: ' + temp + ' sun Q: ' + sun);
+	map.redraw(); 
+}
+
+//var timeslider = d3.select('#bottomoverlay').append('input').attr('id','slider')
+//	.attr('type','range').attr('min', starttime).attr('max', endtime).attr('value',starttime).attr('step', daystep )
+//	//.on('input',timechange)
+//	//.on('change', timechange);
+//var slider = timeslider[0][0];
+
+var intervalSelector = d3.select('#rightoverlay').append('select').classed('form-control',true).style('width','100px');
+intervalSelector.append('option').attr('value',monthstep).html('month');
+intervalSelector.append('option').attr('value',weekstep).html('week');
+intervalSelector.append('option').attr('value',daystep).attr('selected',true).html('day');
+intervalSelector.append('option').attr('value',hourstep).html('hour');
+var weatherchart;
+intervalSelector.on('change', function(d){
+	var self = this;
+	timestep = this.value;
+	scale = d3.scale.linear().domain([starttime, endtime]).range([0,(endtime - starttime)/this.value]);
+	timescale_weather = d3.scale.linear().domain([weatherT0, weatherTMax]).range([0,(weatherTMax - weatherT0)/this.value]);
+	d3.select('#meters').selectAll('circle').each(function(d){
+		if (self.value == hourstep){
+			d.activemeasure = d.byhourmeasure;
+		}
+		else if (self.value == daystep) {
+			d.activemeasure = d.bydaymeasure;
+		}
+		else if (self.value == weekstep) {
+			d.activemeasure = d.byweekmeasure;
+		}
+		else if (self.value == monthstep) {
+			d.activemeasure = d.bymonthmeasure;
+		};
+	});
+	if (this.value == hourstep){
+		weatherdata.sunmeasure = weatherdata.byhoursun;
+		weatherdata.tempmeasure = weatherdata.byhourtemperature;
+	}
+	else if (this.value == daystep) {
+		weatherdata.sunmeasure = weatherdata.bydaysun;
+		weatherdata.tempmeasure = weatherdata.bydaytemperature;
+	}
+	else if (this.value == weekstep) {
+		weatherdata.sunmeasure = weatherdata.byweeksun;
+		weatherdata.tempmeasure = weatherdata.byweektemperature;
+	}
+	else if (this.value == monthstep) {
+		weatherdata.sunmeasure = weatherdata.bymonthsun;
+		weatherdata.tempmeasure = weatherdata.bymonthtemperature;
+	};
+	
+	//timeslider.attr('step',parseInt(this.value));
+	
+	var data = [{
+		"key": "Sun",
+		"values": []
+	},{
+		"key": "Temp",
+		"values": []
+	}];
+	//Map the values so we can use them in the graph
+	data[0].values = weatherdata.sunmeasure.map(function(d){return [d.key, d.value]});
+	data[1].values = weatherdata.tempmeasure.map(function(d){return [d.key, d.value]});
+	addGraphs(data);
 });
 
+var playinterval;
+var playbutton = d3.select('#rightoverlay').append('button').classed('btn btn-primary',true).on('click', function(){
+	/*TODO: change to nvd3 graph effect
+	var slider = timeslider[0][0];
+	slider.value = starttime;
+	playinterval = window.setInterval(
+		function(){
+			if (slider.valueAsNumber > endtime){
+				slider.value = starttime;
+			}
+			slider.stepUp(1);
+			timechange();
+		}
+	,500);
+	*/
+}).html('Play');
+var stopbutton = d3.select('#rightoverlay').append('button').classed('btn btn-default',true).on('click', function(){
+	//clearInterval(playinterval);
+}).html('Stop');
+
+
+
+var gemeentelayer = map.layers('gemeenten', {});
 d3.json("./data/cbs2013/gemeenten.topojson", function(error, data) {
   var areas = topojson.feature(data, data.objects.gemeenten);
   for (var i = 0; i < areas.features.length; i++ ){
@@ -61,113 +311,256 @@ d3.json("./data/cbs2013/gemeenten.topojson", function(error, data) {
   //gemeentelayer.data(areas.features);
   map.redraw();
 });
-
-var buurtlayer = map.layers('buurten', {
-	type: 'path'
-});
-d3.json("./data/cbs2013/buurten.topojson", function(error, data) {
-  var areas = topojson.feature(data, data.objects.buurten);
-  for (var i = 0; i < areas.features.length; i++ ){
-	areas.features[i].id = i;
-  }
-  //buurtlayer.data(areas.features);
-  map.redraw();
-});
-
-
-
-d3.select('#graph').append('svg').attr('width',1000).attr('height',200);
-
-var sparqlEndpoint = 'http://lod.geodan.nl/sparql?format="text/csv"&query=';
-
-var gasmetersQuery = 'prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#> \
-	prefix locn: <http://www.w3.org/ns/locn#> \
-	prefix bag: <http://lod.geodan.nl/vocab/bag#> \
-	select ?meter ?woonplaats ?straat ?nummer ?letter ?postcode \
-	from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
-	where { \
-	?meter a ebif:GasMeter . \
-	?meter locn:address ?adres . \
-	?adres locn:addressArea ?woonplaats . \
-	?adres locn:thoroughfare ?straat . \
-	?adres locn:postCode ?postcode . \
-	?adres bag:huisnummer ?nummer . \
-	optional {?adres bag:huisletter ?letter .} \
-	} \
-	order by ?woonplaats ?straat ?nummer';
-
-var waardesQuery = 'prefix ebif:<http://lod.geodan.nl/vocab/cerise-sg/ebif#>\
-	select ?tijd ?waarde \
-	from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
-	where { \
-	?meting a ebif:Measurement . \
-	?meting ebif:meter <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/gmeter_klant43> . \
-	?meting ebif:time ?tijd . \
-	?meting ebif:measuredValue ?waarde . \
-	} \
-	order by ?tijd';
+var tmp;
+var loadedMeters = 0;
 var querymeter = function(d){
-	var meter = d.meter;
-	var waardesQuery = 'prefix ebif:<http://lod.geodan.nl/vocab/cerise-sg/ebif#>\
-		select ?tijd ?waarde \
-		from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
-		where { \
-		?meting a ebif:Measurement . \
-		?meting ebif:meter <'+meter+'> . \
-		?meting ebif:time ?tijd . \
-		?meting ebif:measuredValue ?waarde . \
-		} \
-		order by ?tijd';
-	var query = encodeURI(sparqlEndpoint) + encodeURIComponent(waardesQuery);
-	d3.csv(query, function(response){
-	
-		for (var i=0;i<response.length;i++){
-			rec = response[i];
-			rec.month = new Date(rec.tijd).getMonth();
-		}
-		var groups = _(response).groupBy('month');
-		var data = _(groups).map(function(g, key) {
-		  return { type: key, 
-				   val: _(g).reduce(function(m,x) { return m + parseFloat(x.waarde); }, 0) };
-		});
-		var graphdiv = d3.select('#infobox').html('');
-		var svg = graphdiv.append('svg');
-		var x = d3.scale.linear().domain([0, response.length]).range([0, 1000]);
-		var y = d3.scale.linear().domain([0, 10]).range([200, 0]);
-		
-		var line = d3.svg.line()
-			.x(function(d,i) { 
-				return x(parseInt(d.type)); 
-			})
-			.y(function(d) { 
-				return y(d.val); 
-			});
-		svg.append("svg:path").attr("d", line(data));
-	});	
-}	
+	var meter = d.properties.meter;
+	var request_url = queries.getMeterValues(meter);
+	var address = d.properties;
+	var data = null;
+	//Add meterdata to the meters
+	d3.csv(request_url, function(response){
+		loadedMeters++;
+		d.data = response;
+		var cf = crossfilter(response);
 
-var meterinfo = function(d){
-	d3.select('#infobox').html(d.id);
+		d.bymonth = cf.dimension(function(d) { return d3.time.month(new Date(d.tijd)).getTime(); });
+		d.byweek = cf.dimension(function(d) { return d3.time.week(new Date(d.tijd)).getTime(); });
+		d.byday = cf.dimension(function(d) { return d3.time.day(new Date(d.tijd)).getTime(); });
+		d.byhour = cf.dimension(function(d) { return new Date(d.tijd).getTime();});
+		
+		d.bymonthmeasure = d.byday.group().reduceSum(function(d){return d.waarde / (24 * 30);}).all();
+		d.byweekmeasure = d.byday.group().reduceSum(function(d){return d.waarde / (24 * 7);}).all();
+		d.bydaymeasure = d.byday.group().reduceSum(function(d){return d.waarde / 24;}).all();
+		d.byhourmeasure = d.byhour.group().reduceSum(function(d){return d.waarde;}).all();
+		d.activemeasure = d.bydaymeasure;
+		//Check if all meters are loaded
+		if (numMeters == loadedMeters){
+			d3.select('#meterstatus').classed('label-default',false).classed('label-success',true).html('Meterdata loaded');
+		}
+	});	
 }
 
-var meterslayer = map.layers('meters', {
-	type: 'point',
-	onmouseover: meterinfo,
-	onclick: querymeter
+var addGraphs  = function(data){
+		nv.addGraph(function() {
+		  //var chart = nv.models.lineWithFocusChart()
+		  var chart = nv.models.lineChart()
+					.x(function(d) { return d[0] })
+					.y(function(d) { return d[1] }) //adjusting, 100% is 1.00, not 100 as it is in the data
+					.color(d3.scale.category10().range())
+					.useInteractiveGuideline(true);
+
+		  chart.xAxis
+			.tickValues([1335830400000,1371859200000])
+			.tickFormat(function(d) {
+				return d3.time.format('%x')(new Date(d))
+			  });
+		
+		//chart.x2Axis
+		//	.tickValues([1335830400000,1371859200000])
+		//	.tickFormat(function(d) {
+		//		return d3.time.format('%x')(new Date(d))
+		//	  });	  
+
+		  chart.yAxis
+			  .tickFormat(d3.format(',.2f'));
+
+		//  chart.y2Axis
+		//	  .tickFormat(d3.format(',.2f'));
+
+		  d3.select('#chart svg')
+			  .datum(data)
+			  .transition().duration(500)
+			  .call(chart);
+
+			  
+			chart.interactiveLayer.dispatch.on('elementMousemove.x', function(d){
+				var timestamp = Math.round(d.pointXValue);
+				timechange(timestamp);
+			});
+		  nv.utils.windowResize(chart.update);
+		  weatherchart = chart;
+		  return chart;
+		});
+}
+
+var weatherdata = {};
+var weathergraph = null;
+var getWeatherData = function(){
+	d3.csv('./data/station_210.csv', function(response){
+		var d = weatherdata;
+		d.data = response;
+		var cf = crossfilter(response);
+		d.bystation = cf.dimension(function(d){ return d.STN});
+		d.bystation.filter(210); //only station 210 for now
+		
+		var date = function(d){
+			//Trick to add zero padding to hour so it orders correctly
+			var string = d.YYYYMMDD;
+			var year = string.substr(0,4);
+			var month = string.substr(4,2);
+			var day = string.substr(6,2);
+			var hour = parseInt(d.HH);
+			return new Date(year, month, day,hour);
+		}
+		d.bymonth = cf.dimension(function(d) { return d3.time.month(date(d)).getTime(); });
+		d.byweek = cf.dimension(function(d) { return d3.time.week(date(d)).getTime(); });
+		d.byday = cf.dimension(function(d) { return d3.time.day(date(d)).getTime(); });
+		d.byhour = cf.dimension(function(d) { return date(d).getTime();});
+		//FIXME: use real month and week measures
+		d.bymonthtemperature = d.bymonth.group().reduceSum(function(d){return d.T / (10 * 24 * 30);}).all();
+		d.bymonthsun = d.bymonth.group().reduceSum(function(d){return d.Q / (24 * 30);}).all();
+		d.byweektemperature = d.byweek.group().reduceSum(function(d){return d.T / (10 * 24 * 7);}).all();
+		d.byweeksun = d.byweek.group().reduceSum(function(d){return d.Q / (24 * 7);}).all();
+		d.bydaytemperature = d.byday.group().reduceSum(function(d){return d.T / (10 * 24);}).all();
+		d.bydaysun = d.byday.group().reduceSum(function(d){return d.Q / 24;}).all();
+		d.byhourtemperature = d.byhour.group().reduceSum(function(d){return d.T / 10;}).all();
+		d.byhoursun = d.byhour.group().reduceSum(function(d){return d.Q;}).all();
+		d.sunmeasure = d.bydaysun;
+		d.tempmeasure = d.bydaytemperature;
+		
+		d3.select('#weatherstatus').classed('label-default',false).classed('label-success',true).html('Weatherdata loaded');
+		zon = d3.select('#leftoverlay').append('img').attr('id','zon').attr('src','./zon2.svg').attr('width',100).attr('height',100).style('position','absolute').style('left','50px');
+		temp = d3.select('#leftoverlay').append('div').attr('id', 'temp').style('position', 'absolute').style('left','20px').style('width','10px').style('height','20px');
+		
+		var data = [{
+			"key": "Sun",
+			"values": []
+		},{
+			"key": "Temp",
+			"values": []
+		}];
+		//Map the values so we can use them in the graph
+		data[0].values = weatherdata.sunmeasure.map(function(d){return [d.key, d.value]});
+		data[1].values = weatherdata.tempmeasure.map(function(d){return [d.key, d.value]});
+		addGraphs(data);
 	});
-var query = encodeURI(sparqlEndpoint) + encodeURIComponent(gasmetersQuery);
-d3.csv(query, function(response){
+}
+
+/** Show a popover with meterinfo **/
+var meterinfo = function(d,e){
+	var loc = d3.mouse(d3.select('#map')[0][0]);
+	var div = d3.select('#map').append('div').classed('maptooltip panel panel-primary',true)
+		.style('left', loc[0] + 20 + 'px').style('top', loc[1] + 5 + 'px').on('click',function(d){d3.select(this).remove();});
+	div.append('div').classed('panel-heading',true).html(d.id);
+	div.append('div').classed('panel-body',true).html(d.sum + ' m3 gas');
+	div.classed("label label-primary", true).style('display','block');
+	var data = [{
+			"key": "Gas",
+			"values": []
+		}];
+		//Map the values so we can use them in the graph
+		data[0].values = d.activemeasure.map(function(d){return [d.key, d.value]});
+	nv.addGraph(function() {
+	  var chart = nv.models.lineChart()
+					.x(function(d) { return d[0] })
+					.y(function(d) { return d[1] }) //adjusting, 100% is 1.00, not 100 as it is in the data
+					.margin({left: 50})  //Adjust chart margins to give the x-axis some breathing room.
+					.useInteractiveGuideline(true)  //We want nice looking tooltips and a guideline!
+					.transitionDuration(350)  //how fast do you want the lines to transition?
+					.showLegend(true)       //Show the legend, allowing users to turn on/off line series.
+					.showYAxis(true)        //Show the y-axis
+					.showXAxis(true)        //Show the x-axis
+	  ;
+
+	  chart.xAxis     //Chart x-axis settings
+		  .tickValues([1335830400000,1371859200000])
+			.tickFormat(function(d) {
+				return d3.time.format('%x')(new Date(d))
+			  });
+
+	  chart.yAxis     //Chart y-axis settings
+		  .axisLabel('m3')
+		  .tickFormat(d3.format(',.2f'));
+
+	  div.append('svg').attr('width',300).attr('height',200)    //Select the <svg> element you want to render the chart in.   
+		  .datum(data)         //Populate the <svg> element with chart data...
+		  .call(chart);          //Finally, render the chart!
+
+	  //Update the chart when window resizes.
+	  nv.utils.windowResize(function() { chart.update() });
+	  return chart;
+	});
+}
+
+/** Define weatherstation layer **/
+
+var weatherlayer = map.layers('weather', {
+	type: 'point',
+	labels: true,
+	labelconfig: {
+		field: 'label'
+	},
+	style: {
+		fill: 'yellow'
+	}
+});
+d3.csv('./data/weerstations.csv', function(response){
 	var collection = {"type":"FeatureCollection","features":[]}; 
 	response.forEach(function(d,i){
-		d.x =  4.740008 + Math.random()/100; //Points around Julianadorp
-		d.y = 52.892394 + Math.random()/100;
+		d.x = parseFloat(d.LON);
+		d.y = parseFloat(d.LAT);
 		var feature = {
-			id: i,
+			id: d.STN,
 			type: 'Feature',
+			properties: d,
 			geometry: {type: 'Point', coordinates: [d.x, d.y]}
 		};
 		collection.features.push(feature);
 	});
+	//Now load the big file with weatherdata
+	getWeatherData();
+	weatherlayer.data(collection.features);
+	map.redraw();
+});
+
+/** Define meters layer **/
+
+var hightlight = function(d, elem){
+	d3.selectAll('circle').style('fill','steelBlue');
+	//d3.select(this).style('fill', 'orange');
+}
+
+var meterslayer = map.layers('meters', {
+	type: 'point',
+	style: {
+		fill: 'red'
+	},
+	onmouseover: hightlight,
+	onclick: meterinfo
+});
+
+
+var queries = new lodui.queries();
+var request_url = queries.geocodedMeters();
+var numMeters = 0;
+//Get a list of gas-meters (TT: removed request_url for now because it takes 6 secs.)
+d3.csv('./data/meters.csv', function(response){
+	var collection = {"type":"FeatureCollection","features":[]};
+	numMeters = response.length; //user later to see if all meters are loaded
+	response.forEach(function(d,i){
+		var coords = d.geom.replace('POINT(','').replace(')','').split(' ');
+		d.x = parseFloat(coords[0]);
+		d.y = parseFloat(coords[1]);
+		var feature = {
+			id: i,
+			type: 'Feature',
+			properties: d,
+			geometry: {type: 'Point', coordinates: [d.x, d.y]}
+		};
+		collection.features.push(feature);
+		querymeter(feature);
+	});
+	
+	//WORK IN PROGRESS:
+	var rows = d3.select('#table').classed('list-group', true).selectAll('.row').data(collection.features, function(d){return d.id});
+	var newrow = rows.enter().append('li').classed('row list-group-item', true);
+	newrow.html(function(d){
+			var address = d.properties;
+			return '<small>' + address.straat + ' ' + address.nummer + (address.letter || '' ) + address.woonplaats  + '</small>';
+		});
+	newrow.on('mouseover', function(d){})
+	rows.exit().remove();
 	meterslayer.data(collection.features);
 	map.redraw();
 });

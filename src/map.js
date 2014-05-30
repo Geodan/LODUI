@@ -4,19 +4,20 @@ lodui.map = function(id, config){
 	var self = this;
 	var active = d3.select(null);
 	var mapdiv = d3.select('#' + id);
+	this.tooltip = mapdiv.append('div').attr('id','maptooltip');
 	this.config = config;
 	this._layers = [];
 	
 	var center = config.center;
 	
-	var width = Math.max(960, window.innerWidth),
-		height = Math.max(500, window.innerHeight);
+	var width = document.getElementById('map').clientWidth, //Math.max(960, window.innerWidth),
+		height = Math.max(500, document.getElementById('map').clientHeight); //Math.max(500, window.innerHeight);
 	
 	var tile = d3.geo.tile()
     .size([width, height]);
 	
 	var projection = d3.geo.mercator()
-		.scale((1 << 20) / 2 / Math.PI)
+		.scale((1 << 22) / 2 / Math.PI)
 		.translate([width / 2, height / 2]);
 		
 	this.projection = projection;	
@@ -29,7 +30,7 @@ lodui.map = function(id, config){
 	this.geoPath = geoPath;
 	var zoom = d3.behavior.zoom()
 		.scale(projection.scale() * 2 * Math.PI)
-		.scaleExtent([1 << 10, 1 << 24])
+		.scaleExtent([1 << 10, 1 << 26])
 		.translate([width - center[0], height - center[1]])
 		.on("zoom", redraw);
 	this.zoom = zoom;
@@ -40,6 +41,8 @@ lodui.map = function(id, config){
     .translate([0, 0]);
 	
 	function clicked(d) {
+		console.warn('Click not implemented');
+	/*
 	  if (active.node() === this) return self.reset();
 	  active.classed("active", false);
 	  active = d3.select(this).classed("active", true);
@@ -55,6 +58,7 @@ lodui.map = function(id, config){
 	  svg.transition()
 		  .duration(750)
 		  .call(zoom.translate(translate).scale(scale).event);
+	*/
 	}
 	this.clicked = clicked;
 	function reset() {
@@ -78,8 +82,6 @@ lodui.map = function(id, config){
 		vector
 			.attr("transform", "translate(" + zoom.translate() + ")scale(" + zoom.scale() + ")")
 			.style("stroke-width", 1 / zoom.scale())
-		vector.selectAll('circle')
-			.attr('r',5 / zoom.scale());
 						
 		var image = raster
 			.attr("transform", "scale(" + tiles.scale + ")translate(" + tiles.translate + ")")
@@ -90,11 +92,19 @@ lodui.map = function(id, config){
 			.remove();
 
 		image.enter().append("image")
-		  .attr("xlink:href", function(d) { return "http://" + ["a", "b", "c", "d"][Math.random() * 4 | 0] + ".tiles.mapbox.com/v3/examples.map-vyofok3q/" + d[2] + "/" + d[0] + "/" + d[1] + ".png"; })
+		  .attr("xlink:href", function(d) { 
+			//return "http://" + ["a", "b", "c", "d"][Math.random() * 4 | 0] + ".tiles.mapbox.com/v3/examples.map-vyofok3q/" + d[2] + "/" + d[0] + "/" + d[1] + ".png"; 
+			return "http://" + ["a", "b", "c"][Math.random() * 3 | 0] + ".tile.stamen.com/watercolor/" + d[2] + "/" + d[0] + "/" + d[1] + ".png"; 
+		  })
 		  .attr("width", 1)
 		  .attr("height", 1)
 		  .attr("x", function(d) { return d[0]; })
 		  .attr("y", function(d) { return d[1]; });
+		  
+		//redraw individual layers
+		for (var i = 0; i < self.layers().length; i++){
+			self.layers()[i].redraw();
+		}
 	}
 	this.redraw = redraw;
 	
@@ -106,6 +116,8 @@ lodui.map = function(id, config){
 	var raster = svg.append("g").attr('id', 'raster');	
 	var vector = svg.append("g").attr('id','vector');
 	this.vector = vector;
+	
+	
 }
 
 /** 
