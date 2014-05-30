@@ -73,7 +73,7 @@ lodui.layer.prototype.redraw = function(){
 				d3.select(this).style('opacity',1);
 				d3.selectAll('.mouseover').style('display', 'none');
 			})
-			.on('click', clicked);
+			.on('click', self._onclick);
 	}
 	
 	d3.select('#'+ this._id).selectAll('.entity')
