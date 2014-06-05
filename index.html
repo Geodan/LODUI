@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LODUI map</title>
+    <title>EIB</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     
     <!-- D3 -->
@@ -56,7 +56,6 @@
 		stroke: steelBlue;
 		fill: none;
 	}
-	
 	.maptooltip {
 		position: absolute;
 	}
@@ -64,7 +63,12 @@
 	#map {
 		height: 100%;
 	}
-	
+	.overlay {
+	    position: absolute;
+	    left: 10%;
+	    top: 20%;
+	    z-index: 101;
+	}
 	#leftoverlay {
 		position: absolute;
 		top: 30px;
@@ -84,9 +88,13 @@
 		position: absolute;
 		bottom: 0px;
 		left: 50px;
-		width: 100%;
+		width: 90%;
 		height: 300px;
 		z-index: 100;
+	}
+	
+	#bottomoverlay .panel-body{
+	    display: 'none';
 	}
 	
 	#table {
@@ -118,6 +126,7 @@
     </style>
 </head>
 <body>
+
 <!--
 <div id='controls' class="page-header">
 	<h1>Cerise demo app</h1>
@@ -127,20 +136,40 @@
 
 	<div id="webgl"></div>
 	
+	
 	<div id='map' class="col-md-12">
+	<div class="overlay container">
+        <div class="jumbotron">
+            <h1>EIB</h1>
+            <p>Loading data.....</p>
+            <div>Weatherdata loading...</div>
+            <div class="progress">
+                <div id='weatherstatus' class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
+                </div>
+            </div>
+			<br><br>
+			<div>Meterdata loading...</div>
+			<div class="progress">
+                <div id='meterstatus' class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
+                </div>
+            </div>
+        </div>
+    </div>
+	
 		<div id='rightoverlay'>
-			<div id='weatherstatus' class='label label-default'>Weatherdata loading...</div>
-			<br>
-			<div id='meterstatus' class='label label-default'>Meterdata loading...</div>
+			
 		</div>	
 		<div id='leftoverlay'>
 			
 		</div>	
-		<div id='bottomoverlay'>
-			<span class='glyphicon glyphicon-time'></span><div id='infobox' ></div>
-			<div id='chart'> 
-				<svg style='height:200px'> </svg>
-			</div>
+		<div id='bottomoverlay' class="panel panel-default">
+		    <div class="panel-heading">Dashboard</div>
+		    <div class="panel-body">
+                <span class='glyphicon glyphicon-time'></span><div id='infobox' ></div>
+                <div id='chart'> 
+                    <svg style='height:200px'> </svg>
+                </div>
+            </div>
 		</div>
 	</div>
 	
@@ -157,30 +186,46 @@
 -->
 <script>
 
-var aggregator = 'month';	
+d3.select('#bottomoverlay').select('.panel-heading').on('click', function(d){
+        if (d3.select(this).classed('selected')){
+            d3.select(this).classed('selected', false);
+            d3.select(this.parentElement).select('.panel-body').style('display', 'none');
+            d3.select(this.parentElement).style('height', '0px');
+        }
+        else {
+            d3.select(this).classed('selected', true);
+            d3.select(this.parentElement).select('.panel-body').style('display', 'block');
+            d3.select(this.parentElement).style('height', '300px');
+        }
+});
 
 var format = d3.time.format("%Y-%m-%d");
 var axis = d3.svg.axis().tickFormat(function(d){ 
 	//return format(new Date(d*60000));
 	return d;
 });
-var starttime = 1335830400000;
-var endtime = 1371859200000;
+
 //FIXME: month and week are incorrect
 var monthstep = 30 * 24 * 60 * 60 * 1000; //day * hr * sec * ms
 var weekstep = 7 * 24 * 60 * 60 * 1000; //day * hr * sec * ms
 var daystep = 24 * 60 * 60 * 1000; //day * hr * sec * ms
 var hourstep = 60 * 60 * 1000;
 var timestep = daystep;
+
+var starttime = 1335830400000; //01 may 2012 02:00
+var endtime = 1371859200000; //1356994800000; //01 jan 2013 00:00 
 var scale = d3.scale.linear().domain([starttime, endtime]).range([0,(endtime - starttime)/timestep]);
+
 var weatherT0 = 1325372400000; //01 jan 2012 00:00
 var weatherTMax = 1388527200000; //31 dec. 2013 23:00
-
 var timescale_weather = d3.scale.linear().domain([weatherT0, weatherTMax]).range([0,(weatherTMax - weatherT0)/timestep]);
 
 var map = new lodui.map('map', {center: [4.740008,52.892394]});
 var colorscale = d3.scale.linear().domain([-5,20]).range([0,255]);
 var timechange = function(timestamp){
+    //Set the tickmark to our cursor position in the graph
+    weatherchart.xAxis.tickValues([timestamp]);
+    weatherchart.update();
 	//var value = slider.valueAsNumber;
 	var value = timestamp;
 	var time = new Date(value);
@@ -188,14 +233,26 @@ var timechange = function(timestamp){
 	var index = Math.round(scale(value));
 	//Calculate the radius for the meters
 	d3.select('#meters').selectAll('circle').each(function(d){
-		if (d.data && d.data.length > 0 && d.activemeasure[index]){
-			var sum = d.activemeasure[index].value;	
-		}
-		else {
-			var sum = 0;
-		}
+	    if (d.measuretype == 'gas'){
+	        d.style = {fill: 'steelBlue'};
+            if (d.data && d.data.length > 0 && d.gactivemeasure[index]){
+                var sum = Math.abs(d.gactivemeasure[index].value);	
+            }
+            else {
+                var sum = 0;
+            }
+        }
+        else{
+            d.style = {fill: 'Crimson'};
+            if (d.data && d.data.length > 0 && d.eactivemeasure[index]){
+                var sum = Math.abs(d.eactivemeasure[index].value / 5000);	
+            }
+            else {
+                var sum = 0;
+            }
+        }
 		d.sum = sum;
-		d.r = (sum * 50) + 2; //2 is the minimum for a circle
+		d.r = (sum * 50); //TODO, make dependend on type of value
 	});
 	//Calculate the radius for the weatherstations
 	var index = Math.round(timescale_weather(value));
@@ -211,7 +268,7 @@ var timechange = function(timestamp){
 	
 	d3.select('#temp').transition().duration(50)
 		.style('width',(temp) + 'px').style('background', 'rgb('+colorscale(temp)+',0,0)');
-	d3.select('#temp').html((temp/10) + ' deg');
+	d3.select('#temp').html((temp) + ' deg');
 	
 	d3.select('#infobox').html(time + ' temperature: ' + temp + ' sun Q: ' + sun);
 	map.redraw(); 
@@ -223,29 +280,33 @@ var timechange = function(timestamp){
 //	//.on('change', timechange);
 //var slider = timeslider[0][0];
 
-var intervalSelector = d3.select('#rightoverlay').append('select').classed('form-control',true).style('width','100px');
-intervalSelector.append('option').attr('value',monthstep).html('month');
-intervalSelector.append('option').attr('value',weekstep).html('week');
-intervalSelector.append('option').attr('value',daystep).attr('selected',true).html('day');
-intervalSelector.append('option').attr('value',hourstep).html('hour');
-var weatherchart;
-intervalSelector.on('change', function(d){
-	var self = this;
+var changeInterval = function(d){
+    d3.selectAll('.intervalbtn').classed('btn-default', true).classed('btn-primary',false);
+    d3.select(this).classed('btn-primary', true);
+    var self = this;
 	timestep = this.value;
 	scale = d3.scale.linear().domain([starttime, endtime]).range([0,(endtime - starttime)/this.value]);
 	timescale_weather = d3.scale.linear().domain([weatherT0, weatherTMax]).range([0,(weatherTMax - weatherT0)/this.value]);
 	d3.select('#meters').selectAll('circle').each(function(d){
 		if (self.value == hourstep){
-			d.activemeasure = d.byhourmeasure;
+			d.gactivemeasure = d.byhourmeasure;
+			d.eactivemeasure = d.ebyhourmeasure;
+			d.etactivemeasure = d.etbyhourmeasure;
 		}
 		else if (self.value == daystep) {
-			d.activemeasure = d.bydaymeasure;
+			d.gactivemeasure = d.bydaymeasure;
+			d.eactivemeasure = d.ebydaymeasure;
+			d.etactivemeasure = d.etbydaymeasure;
 		}
 		else if (self.value == weekstep) {
-			d.activemeasure = d.byweekmeasure;
+			d.gactivemeasure = d.byweekmeasure;
+			d.eactivemeasure = d.ebyweekmeasure;
+			d.etactivemeasure = d.etbyweekmeasure;
 		}
 		else if (self.value == monthstep) {
-			d.activemeasure = d.bymonthmeasure;
+			d.gactivemeasure = d.bymonthmeasure;
+			d.eactivemeasure = d.ebymonthmeasure;
+			d.etactivemeasure = d.etbymonthmeasure;
 		};
 	});
 	if (this.value == hourstep){
@@ -278,26 +339,48 @@ intervalSelector.on('change', function(d){
 	data[0].values = weatherdata.sunmeasure.map(function(d){return [d.key, d.value]});
 	data[1].values = weatherdata.tempmeasure.map(function(d){return [d.key, d.value]});
 	addGraphs(data);
-});
+	timechange(curtime);
+}
 
+var intervalSelector = d3.select('#leftoverlay').append('div').append('btn-group').html('<h3>Time interval: </h3>');
+intervalSelector.append('button').classed('btn btn-default',true).classed('intervalbtn', true).attr('value',monthstep).html('month').on('click', changeInterval);
+intervalSelector.append('button').classed('btn btn-default',true).classed('intervalbtn', true).attr('value',weekstep).html('week').on('click', changeInterval);
+intervalSelector.append('button').classed('btn btn-primary',true).classed('intervalbtn', true).attr('value',daystep).attr('selected',true).html('day').on('click', changeInterval);
+//intervalSelector.append('button').classed('btn btn-default',true).attr('value',hourstep).html('hour').on('click', changeInterval);
+
+var changeMeter = function(d){
+    d3.selectAll('.energytypebtn').classed('btn-default', true).classed('btn-primary',false);
+    d3.select(this).classed('btn-primary', true);
+    var self = this;
+    d3.select('#meters').selectAll('circle').each(function(d){
+		d.measuretype = self.value;
+	});
+}
+
+var meterSelector = d3.select('#leftoverlay').append('div').append('btn-group').html('<h3>Energy type:</h3> ');
+meterSelector.append('button').classed('btn btn-primary',true).classed('energytypebtn', true).attr('value','gas').html('Gas').on('click', changeMeter);
+meterSelector.append('button').classed('btn btn-default',true).classed('energytypebtn', true).attr('value','elec').html('Electricity').on('click', changeMeter);
+
+var weatherchart;
 var playinterval;
-var playbutton = d3.select('#rightoverlay').append('button').classed('btn btn-primary',true).on('click', function(){
-	/*TODO: change to nvd3 graph effect
-	var slider = timeslider[0][0];
-	slider.value = starttime;
+var curtime = starttime;
+var playbuttons = d3.select('#leftoverlay').append('div').append('btn-group').html('<h3>Animation:</h3> ');
+playbuttons.append('button').attr('id', 'playbutton').classed('btn btn-default',true).on('click', function(){
+    d3.select(this).classed('btn-primary', true).classed('btn-default', false);
+	timechange(curtime);
 	playinterval = window.setInterval(
 		function(){
-			if (slider.valueAsNumber > endtime){
-				slider.value = starttime;
+			if (curtime > endtime){
+				curtime = starttime;
 			}
-			slider.stepUp(1);
-			timechange();
+			curtime = parseInt(curtime) + parseInt(timestep);
+			timechange(curtime);
 		}
 	,500);
-	*/
 }).html('Play');
-var stopbutton = d3.select('#rightoverlay').append('button').classed('btn btn-default',true).on('click', function(){
-	//clearInterval(playinterval);
+playbuttons.append('button').classed('btn btn-default',true).on('click', function(){
+    d3.select('#playbutton').classed('btn-primary', false).classed('btn-default', true);
+	clearInterval(playinterval);
 }).html('Stop');
 
 
@@ -319,26 +402,65 @@ var querymeter = function(d){
 	var address = d.properties;
 	var data = null;
 	//Add meterdata to the meters
+	//GASMETER
 	d3.csv(request_url, function(response){
 		loadedMeters++;
+		
 		d.data = response;
 		var cf = crossfilter(response);
 
-		d.bymonth = cf.dimension(function(d) { return d3.time.month(new Date(d.tijd)).getTime(); });
-		d.byweek = cf.dimension(function(d) { return d3.time.week(new Date(d.tijd)).getTime(); });
-		d.byday = cf.dimension(function(d) { return d3.time.day(new Date(d.tijd)).getTime(); });
-		d.byhour = cf.dimension(function(d) { return new Date(d.tijd).getTime();});
+		d.bymonth = cf.dimension(function(d) { return d3.time.month(new Date(d.time)).getTime(); });
+		d.byweek = cf.dimension(function(d) { return d3.time.week(new Date(d.time)).getTime(); });
+		d.byday = cf.dimension(function(d) { return d3.time.day(new Date(d.time)).getTime(); });
+		//d.byhour = cf.dimension(function(d) { return d3.time.hour(new Date(d.tijd)).getTime();});
 		
-		d.bymonthmeasure = d.byday.group().reduceSum(function(d){return d.waarde / (24 * 30);}).all();
-		d.byweekmeasure = d.byday.group().reduceSum(function(d){return d.waarde / (24 * 7);}).all();
-		d.bydaymeasure = d.byday.group().reduceSum(function(d){return d.waarde / 24;}).all();
-		d.byhourmeasure = d.byhour.group().reduceSum(function(d){return d.waarde;}).all();
-		d.activemeasure = d.bydaymeasure;
+		d.bymonthmeasure = d.bymonth.group().reduceSum(function(d){return d.value / (24 * 30);}).all();
+		d.byweekmeasure = d.byweek.group().reduceSum(function(d){return d.value / (24 * 7);}).all();
+		d.bydaymeasure = d.byday.group().reduceSum(function(d){return d.value / 24;}).all();
+		//d.byhourmeasure = d.byhour.group().reduceSum(function(d){return d.waarde;}).all();
+		d.gactivemeasure = d.bydaymeasure;
+		d3.select('#meterstatus').style('width',(loadedMeters / (numMeters*2)) * 100 + '%');
 		//Check if all meters are loaded
-		if (numMeters == loadedMeters){
+		if (numMeters * 2 == loadedMeters){
 			d3.select('#meterstatus').classed('label-default',false).classed('label-success',true).html('Meterdata loaded');
+			d3.select('.jumbotron').transition().style('opacity',0).style('display','none');
 		}
-	});	
+	});
+	
+	//ELECTRICITY METER
+	var request_url = queries.geteMeterValues(meter.replace('gmeter', 'emeter'));
+	d3.csv(request_url, function(response){
+		loadedMeters++;
+		d.edata = response;
+		var cf = crossfilter(response);
+
+		d.ebymonth = cf.dimension(function(d) { return d3.time.month(new Date(d.time)).getTime(); });
+		d.ebyweek = cf.dimension(function(d) { return d3.time.week(new Date(d.time)).getTime(); });
+		d.ebyday = cf.dimension(function(d) { return d3.time.day(new Date(d.time)).getTime(); });
+		//d.ebyhour = cf.dimension(function(d) { return d3.time.hour(new Date(d.tijd)).getTime();});
+		
+		d.ebymonthmeasure = d.ebymonth.group().reduceSum(function(d){return d.levering / (24 * 30);}).all();
+		d.ebyweekmeasure = d.ebyweek.group().reduceSum(function(d){return d.levering / (24 * 7);}).all();
+		d.ebydaymeasure = d.ebyday.group().reduceSum(function(d){return d.levering / 24;}).all();
+		//d.ebyhourmeasure = d.ebyhour.group().reduceSum(function(d){return d.levering;}).all();
+		d.eactivemeasure = d.ebydaymeasure;
+		d.activemeasure = d.eactivemeasure; //Default elec. is the active measure
+		//Teruglevering //FIXME: get teruglevering instead of waarde
+		d.etbymonthmeasure = d.ebymonth.group().reduceSum(function(d){return d.teruglevering / (24 * 30);}).all();
+		d.etbyweekmeasure = d.ebyweek.group().reduceSum(function(d){return d.teruglevering / (24 * 7);}).all();
+		d.etbydaymeasure = d.ebyday.group().reduceSum(function(d){return d.teruglevering / (24);}).all();
+		//d.etbyhourmeasure = d.ebyhour.group().reduceSum(function(d){return d.teruglevering / 10;}).all();
+		d.etactivemeasure = d.etbydaymeasure;
+		
+		
+		//Check if all meters are loaded
+		d3.select('#meterstatus').style('width',(loadedMeters / (numMeters*2)) * 100 + '%');
+		if (numMeters * 2 == loadedMeters){
+			d3.select('#meterstatus').classed('label-default',false).classed('label-success',true).html('Meterdata loaded');
+			d3.select('.jumbotron').transition().style('opacity',0).style('display','none');
+		}
+	});
+	
 }
 
 var addGraphs  = function(data){
@@ -351,7 +473,7 @@ var addGraphs  = function(data){
 					.useInteractiveGuideline(true);
 
 		  chart.xAxis
-			.tickValues([1335830400000,1371859200000])
+			.tickValues([starttime,endtime])
 			.tickFormat(function(d) {
 				return d3.time.format('%x')(new Date(d))
 			  });
@@ -376,6 +498,7 @@ var addGraphs  = function(data){
 			  
 			chart.interactiveLayer.dispatch.on('elementMousemove.x', function(d){
 				var timestamp = Math.round(d.pointXValue);
+				curtime = timestamp;
 				timechange(timestamp);
 			});
 		  nv.utils.windowResize(chart.update);
@@ -403,10 +526,11 @@ var getWeatherData = function(){
 			var hour = parseInt(d.HH);
 			return new Date(year, month, day,hour);
 		}
-		d.bymonth = cf.dimension(function(d) { return d3.time.month(date(d)).getTime(); });
-		d.byweek = cf.dimension(function(d) { return d3.time.week(date(d)).getTime(); });
-		d.byday = cf.dimension(function(d) { return d3.time.day(date(d)).getTime(); });
-		d.byhour = cf.dimension(function(d) { return date(d).getTime();});
+		d.bymonth =    cf.dimension(function(d) { return d3.time.month(date(d)).getTime();});
+		d.byweek =     cf.dimension(function(d) { return d3.time.week(date(d)).getTime(); });
+		d.byday =      cf.dimension(function(d) { return d3.time.day(date(d)).getTime();  });
+		d.byhour =     cf.dimension(function(d) { return d3.time.hour(date(d)).getTime(); });
+		
 		//FIXME: use real month and week measures
 		d.bymonthtemperature = d.bymonth.group().reduceSum(function(d){return d.T / (10 * 24 * 30);}).all();
 		d.bymonthsun = d.bymonth.group().reduceSum(function(d){return d.Q / (24 * 30);}).all();
@@ -418,10 +542,10 @@ var getWeatherData = function(){
 		d.byhoursun = d.byhour.group().reduceSum(function(d){return d.Q;}).all();
 		d.sunmeasure = d.bydaysun;
 		d.tempmeasure = d.bydaytemperature;
-		
+		d3.select('#weatherstatus').style('width','100%');
 		d3.select('#weatherstatus').classed('label-default',false).classed('label-success',true).html('Weatherdata loaded');
-		zon = d3.select('#leftoverlay').append('img').attr('id','zon').attr('src','./zon2.svg').attr('width',100).attr('height',100).style('position','absolute').style('left','50px');
-		temp = d3.select('#leftoverlay').append('div').attr('id', 'temp').style('position', 'absolute').style('left','20px').style('width','10px').style('height','20px');
+		zon = d3.select('#leftoverlay').append('img').attr('id','zon').attr('src','./zon2.svg').attr('width',100).attr('height',100).style('position','absolute').style('left','50px').style('display','none');
+		temp = d3.select('#leftoverlay').append('div').attr('id', 'temp').style('position', 'absolute').style('left','20px').style('width','10px').style('height','20px').style('display','none');
 		
 		var data = [{
 			"key": "Sun",
@@ -439,32 +563,47 @@ var getWeatherData = function(){
 
 /** Show a popover with meterinfo **/
 var meterinfo = function(d,e){
+    var p = d.properties;
 	var loc = d3.mouse(d3.select('#map')[0][0]);
-	var div = d3.select('#map').append('div').classed('maptooltip panel panel-primary',true)
-		.style('left', loc[0] + 20 + 'px').style('top', loc[1] + 5 + 'px').on('click',function(d){d3.select(this).remove();});
-	div.append('div').classed('panel-heading',true).html(d.id);
+	//var div = d3.select('#map').append('div').classed('maptooltip panel panel-primary',true)
+	//	.style('left', loc[0] + 20 + 'px').style('top', loc[1] + 5 + 'px').on('click',function(d){d3.select(this).remove();});
+	var div = d3.select('#rightoverlay').append('div').classed('maptooltip panel panel-primary',true).on('click',function(d){d3.select(this).remove();});;
+	div.append('div').classed('panel-heading',true).html(p.straat + ' ' + p.nummer + '<br>' + p.postcode + ' ' + p.woonplaats);
 	div.append('div').classed('panel-body',true).html(d.sum + ' m3 gas');
 	div.classed("label label-primary", true).style('display','block');
-	var data = [{
-			"key": "Gas",
-			"values": []
+	var gasdata = [{
+			key: "Gas",
+			values: [],
+			type: 'line',
+			yAxis: 1
+		}];
+	var elecdata = [{
+			key: "Elec",
+			values: [],
+			type: 'line',
+			yAxis: 1
+		},{
+			key: "Terug",
+			values: [],
+			type: 'line',
+			yAxis: 1
 		}];
 		//Map the values so we can use them in the graph
-		data[0].values = d.activemeasure.map(function(d){return [d.key, d.value]});
+	gasdata[0].values = d.gactivemeasure.map(function(d){return [d.key, d.value]});
+	elecdata[0].values = d.eactivemeasure.map(function(d){return [d.key, d.value]});
+	elecdata[1].values = d.etactivemeasure.map(function(d){return [d.key, d.value]});
 	nv.addGraph(function() {
 	  var chart = nv.models.lineChart()
 					.x(function(d) { return d[0] })
 					.y(function(d) { return d[1] }) //adjusting, 100% is 1.00, not 100 as it is in the data
-					.margin({left: 50})  //Adjust chart margins to give the x-axis some breathing room.
-					.useInteractiveGuideline(true)  //We want nice looking tooltips and a guideline!
-					.transitionDuration(350)  //how fast do you want the lines to transition?
+					.margin({left: 50,right: 50})  //Adjust chart margins to give the x-axis some breathing room.
+					//.useInteractiveGuideline(true)  //We want nice looking tooltips and a guideline!
 					.showLegend(true)       //Show the legend, allowing users to turn on/off line series.
 					.showYAxis(true)        //Show the y-axis
 					.showXAxis(true)        //Show the x-axis
 	  ;
-
+	  chart.forceX(starttime,endtime);
 	  chart.xAxis     //Chart x-axis settings
-		  .tickValues([1335830400000,1371859200000])
 			.tickFormat(function(d) {
 				return d3.time.format('%x')(new Date(d))
 			  });
@@ -472,13 +611,50 @@ var meterinfo = function(d,e){
 	  chart.yAxis     //Chart y-axis settings
 		  .axisLabel('m3')
 		  .tickFormat(d3.format(',.2f'));
+	  //chart.yAxis2     //Chart y-axis settings
+		//  .axisLabel('kW')
+		//  .tickFormat(d3.format(',.2f'));
 
 	  div.append('svg').attr('width',300).attr('height',200)    //Select the <svg> element you want to render the chart in.   
-		  .datum(data)         //Populate the <svg> element with chart data...
+		  .datum(gasdata)         //Populate the <svg> element with chart data...
 		  .call(chart);          //Finally, render the chart!
 
 	  //Update the chart when window resizes.
 	  nv.utils.windowResize(function() { chart.update() });
+	  
+	  return chart;
+	});
+	nv.addGraph(function() {
+	  var chart = nv.models.lineChart()
+					.x(function(d) { return d[0] })
+					.y(function(d) { return d[1] }) //adjusting, 100% is 1.00, not 100 as it is in the data
+					.margin({left: 50, right: 50})  //Adjust chart margins to give the x-axis some breathing room.
+					//.useInteractiveGuideline(true)  //We want nice looking tooltips and a guideline!
+					.transitionDuration(350)  //how fast do you want the lines to transition?
+					.showLegend(true)       //Show the legend, allowing users to turn on/off line series.
+					.showYAxis(true)        //Show the y-axis
+					.showXAxis(true)        //Show the x-axis
+	  ;
+	  chart.forceX(starttime,endtime);
+	  chart.xAxis     //Chart x-axis settings
+			.tickFormat(function(d) {
+				return d3.time.format('%x')(new Date(d))
+			  });
+
+	  chart.yAxis     //Chart y-axis settings
+		  .axisLabel('m3')
+		  .tickFormat(d3.format(',.2f'));
+	  //chart.yAxis2     //Chart y-axis settings
+		//  .axisLabel('kW')
+		//  .tickFormat(d3.format(',.2f'));
+
+	  div.append('svg').attr('width',300).attr('height',200)    //Select the <svg> element you want to render the chart in.   
+		  .datum(elecdata)         //Populate the <svg> element with chart data...
+		  .call(chart);          //Finally, render the chart!
+
+	  //Update the chart when window resizes.
+	  nv.utils.windowResize(function() { chart.update() });
+	  
 	  return chart;
 	});
 }
@@ -524,7 +700,8 @@ var hightlight = function(d, elem){
 var meterslayer = map.layers('meters', {
 	type: 'point',
 	style: {
-		fill: 'red'
+		fill: 'red',
+		stroke: 'red'
 	},
 	onmouseover: hightlight,
 	onclick: meterinfo
@@ -535,7 +712,8 @@ var queries = new lodui.queries();
 var request_url = queries.geocodedMeters();
 var numMeters = 0;
 //Get a list of gas-meters (TT: removed request_url for now because it takes 6 secs.)
-d3.csv('./data/meters.csv', function(response){
+//d3.csv('./data/meters.csv', function(response){
+d3.csv(request_url, function(response){
 	var collection = {"type":"FeatureCollection","features":[]};
 	numMeters = response.length; //user later to see if all meters are loaded
 	response.forEach(function(d,i){
