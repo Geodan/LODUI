@@ -5,6 +5,7 @@ lodui.layer = function(id, map, config){
 	this._data = config.data;
 	this._id = id;
 	this._map = map;
+	this._r = config.r;
 	this._type = config.type || 'path';
 	this._style = config.style || {};
 	this._g = this._map.vector.append('g').attr('id',this._id); //now we have a layer to add data on
@@ -55,8 +56,8 @@ lodui.layer.prototype.redraw = function(){
 		}
 		else {
 			//recalc radius
-			entity.transition().attr('r',function(d){
-				return (d.r || 0) / self._map.zoom.scale();
+			entity.transition().duration(500).attr('r',function(d){
+				return (d[self._r] || d.r || 0) / self._map.zoom.scale();
 			});
 		}
 		entity
@@ -113,6 +114,7 @@ lodui.layer.prototype.data = function(data){
 					var point = d.geometry.coordinates;
 					return projection(point)[1];
 				})
+				.attr('vector-effect','non-scaling-stroke') //TODO: dealing with stroke width this way might not be optimal
 				.classed('entity', true);
 		
 	}
