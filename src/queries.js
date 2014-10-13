@@ -79,7 +79,7 @@ lodui.queries.prototype.geocodedMeters = function(){
                 graph <http://lod.geodan.nl/basisreg/bag/nummeraanduiding/> { \
                     ?NumAandMut a bag:Nummeraanduidingmutatie . \
                     ?NumAandMut bag:lastKnown "true"^^xsd:boolean . \
-                    ?NumAandMut bag:postcode ?postcode. \
+                    ?NumAandMut bag:postcode ?postcode . \
                     ?NumAandMut bag:huisletter ?letter . \
                     ?NumAandMut bag:huisnummer ?nummer . \
                     ?NumAandMut bag:nummeraanduiding ?NumAand . \
@@ -107,7 +107,7 @@ lodui.queries.prototype.geocodedMeters = function(){
                 graph <http://lod.geodan.nl/basisreg/bag/nummeraanduiding/> { \
                     ?NumAandMut a bag:Nummeraanduidingmutatie . \
                     ?NumAandMut bag:lastKnown "true"^^xsd:boolean . \
-                    ?NumAandMut bag:postcode ?postcode. \
+                    ?NumAandMut bag:postcode ?postcode . \
                     ?NumAandMut bag:huisnummer ?nummer . \
                     ?NumAandMut bag:nummeraanduiding ?NumAand . \
                 } \

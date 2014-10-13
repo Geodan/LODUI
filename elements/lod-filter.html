@@ -1,0 +1,51 @@
+<polymer-element name='lod-filter'>
+<template>
+    <style>
+    </style>
+    <h4>Filter</h4>
+    <input id="trigger1" value="{{selectedFromDate}}" 
+          on-click="{{toggleDatepicker}}" 
+          readonly class="date"/>
+    <polymer-date-picker 
+          id="dateFrom"
+          selectedDate="{{selectedFromDate}}"
+          relatedTarget="{{$.trigger1}}" 
+          opened="false"> </polymer-date-picker>
+    <br>
+    <input id="trigger2" value="{{selectedToDate}}" 
+          on-click="{{toggleDatepicker2}}" 
+          readonly class="date"/>
+    <polymer-date-picker 
+          id="dateTo"
+          selectedDate="{{selectedToDate}}"
+          relatedTarget="{{$.trigger2}}" 
+          opened="false"></polymer-date-picker>
+          
+          
+    <paper-button id="apply" on-click="{{apply}}">Apply</paper-button>
+</template>
+<script>
+(function(){
+  Polymer({
+     ready: function(){
+         this.data = [
+             {name: 'adres', type: 'text'},
+             {name: 'woonplaats', type: 'text'},
+             {name: 'straat', type: 'text'},
+             {name: 'postcode', type: 'text'},
+             {name: 'nummer', type: 'number'}
+         ];
+     },
+     apply: function(d){
+         this.fire('apply',{dateFrom: this.selectedFromDate, dateTo: this.selectedToDate});
+     },
+     toggleDatepicker: function(){
+         this.$.dateFrom.toggle();
+     },
+     toggleDatepicker2: function(){
+         this.$.dateTo.toggle();
+     }
+  });
+})();
+</script>
+</polymer-element>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Linked Open Data portal</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    
+    <!-- D3 -->
+    <script src="./bower_components/d3/d3.js"></script>
+    <script src="./bower_components/d3-plugins/geo/tile/tile.js"></script>
+    <script src="./bower_components/d3map/dist/d3map.js"></script>
+    <script src="./bower_components/topojson/topojson.js"></script>
+    
+	<script src="./bower_components/crossfilter/crossfilter.js"></script>
+	<script src="./bower_components/nvd3/nv.d3.min.js"></script>
+	<script src="./libs/nv.models.mymultichart.js"></script> <!--overrides multichart -->
+    <script src="./bower_components/queue-async/queue.min.js"></script>    
+    <script src="./bower_components/underscore/underscore-min.js"></script>
+    
+	<!--
+	<link rel="stylesheet" href="./bower_components/nvd3/nv.d3.min.css" />
+	<link rel="stylesheet" href="./css/main.css" />
+	-->
+	<script src="./bower_components/platform/platform.js"></script>
+	<link rel="import" href="./bower_components/polymer/polymer.html">
+	<link rel="import" href="./bower_components/core-drawer-panel/core-drawer-panel.html">
+	<link rel="import" href="./bower_components/core-toolbar/core-toolbar.html">
+	<link rel="import" href="./bower_components/core-list/core-list.html">
+	<link rel="import" href="./bower_components/core-menu/core-menu.html">
+	<link rel="import" href="./bower_components/core-item/core-item.html">
+	<link rel="import" href="./bower_components/core-pages/core-pages.html">
+	<link rel="import" href="./bower_components/paper-button/paper-button.html">
+	<link rel="import" href="./bower_components/paper-icon-button/paper-icon-button.html">
+	<link rel="import" href="./bower_components/paper-input/paper-input.html">
+	<link rel="import" href="./bower_components/paper-tabs/paper-tabs.html">
+	<link rel="import" href="./bower_components/paper-slider/paper-slider.html">
+	<link rel="import" href="./bower_components/sortable-table/sortable-table.html">
+	<link rel="import" href="./bower_components/polymer-date-picker/polymer-date-picker.html">
+		
+	<link rel="import" href="./bower_components/juicy-jsoneditor/src/juicy-jsoneditor.html">
+	<!-- josdejong/jsoneditor#104 workaround-->
+	<link rel="stylesheet" type="text/css" href="./bower_components/jsoneditor/jsoneditor.min.css">
+	
+	<link rel="import" href="./bower_components/geodan-polymer/elements/mypoly-item.html">
+    <link rel="import" href="./bower_components/geodan-polymer/elements/mypoly-list.html">
+    <link rel="import" href="./bower_components/geodan-polymer/elements/mypoly-map.html">
+    <link rel="import" href="./bower_components/geodan-polymer/elements/mypoly-maplayer.html">
+    <link rel="import" href="./bower_components/geodan-polymer/elements/mypoly-maprasterlayer.html">
+    <link rel="import" href="./bower_components/geodan-polymer/elements/mypoly-dialog.html">
+	
+    <script src="./src/map.js"></script>
+	<script src="./src/layer.js"></script>
+	<script src="./src/queries.js"></script>
+	<script src="./src/dataprocessing.js"></script>
+    
+    <link rel="import" href="./elements/lod-browser.html">
+    <link rel="import" href="./elements/lod-filter.html">
+    <link rel="import" href="./elements/lod-grid.html">
+    <link rel="import" href="./elements/lod-map.html">
+	<link rel="import" href="./elements/lod-app.html">
+    
+    <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    </style>
+    <script type="">
+    var queries = new lodui.queries();
+    
+    </script>
+</head>
+<body unresolved>
+    <lod-app></lod-app>
+</body>
+</html>

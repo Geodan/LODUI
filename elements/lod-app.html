@@ -1,0 +1,83 @@
+<polymer-element name='lod-app'>
+<template>
+    <style>
+    
+    </style>
+    <core-drawer-panel>
+    <div drawer>
+        <lod-browser id="browser"></lod-browser>
+        <lod-filter id="filter"></lod-filter>
+    </div>
+    <div main>
+        <core-header-panel flex>
+            <paper-tabs selected="0" selectedIndex="{{selected}}" class="transparent-teal">
+              <paper-tab>Grid</paper-tab>
+              <paper-tab>Map</paper-tab>
+              <paper-tab>Graph</paper-tab>
+            </paper-tabs>
+            
+            <core-pages selected="{{selected}}">
+                <div class="page"><lod-grid id="grid"></lod-grid></div>
+                <div class="page">
+                    <div id="map">
+                    <d3-map id="item-map" latitude="52.2" longitude="5.2" zoom="3">
+    
+                    <d3-maprasterlayer 
+                        id="mapbox"
+                        type="tms"
+                        url="http://{s}.tiles.mapbox.com/v3/examples.map-i86nkdio/{z}/{x}/{y}.png"
+                        ></d3-maprasterlayer>
+                        
+                    <d3-maplayer id="pathlayer"></d3-maplayer>
+                    <d3-maplayer id="pointlayer"></d3-maplayer>
+                  </d3-map>
+                    
+                    </div>
+                    <!--<lod-map id="map"></lod-map>-->
+                </div>
+            </core-pages>
+        </core-header-panel>
+    </div>
+    </core-drawer-panel>
+</template>
+<script>
+(function(){
+  Polymer({
+     ready: function(){
+         
+         var self = this;
+         var request_url = queries.geocodedMeters();
+         d3.csv(request_url, function(d){
+            console.log(d);
+            self.$.grid.newdata(d);
+            //self.$.map.newdata(d);
+         });
+         
+         this.$.filter.addEventListener('apply', function(e) {
+             console.log('apply',e.detail);
+         });
+     },
+     domReady: function(){
+         /*
+         var map = new lodui.map(this.$.map, {center: [4.740008,52.872394]});
+         var gemeentelayer = map.layers('gemeenten', {
+                 
+         });
+            d3.json("./data/cbs2013/gemeenten.topojson", function(error, data) {
+              var areas = topojson.feature(data, data.objects.gemeenten);
+              for (var i = 0; i < areas.features.length; i++ ){
+                areas.features[i].id = i;
+              }
+              gemeentelayer.data(areas.features);
+              map.redraw();
+            });
+            */
+     },
+     changepage: function(a,b,c){
+        var pages = document.querySelector('core-pages');
+        pages.selected = c.getAttribute('value');
+     }
+  });
+})();
+</script>
+</polymer-element>
