@@ -1,0 +1,50 @@
+<polymer-element name='lod-grid'>
+<template>
+    <style>
+    sortable-table {
+        font-size: 10px;
+    }
+    </style>
+    <h4>Grid</h4>
+    <sortable-table 
+        data = "{{rows}}"
+        page = "{{page}}"
+        pageSize= "{{pageSize}}"
+			>
+    </sortable-table>
+    <paper-slider id="pager" min="1" max="{{maxpages}}" value="1"></paper-slider>
+    <paper-icon-button id="pageleft" icon="arrow-back"></paper-icon-button>
+    <paper-icon-button id="pageright"icon="arrow-forward"></paper-icon-button>
+</template>
+<script>
+(function(){
+  Polymer({
+     ready: function(){
+         this.page = 1;
+         this.pageSize = 10;
+         var self = this;
+         this.rows = [];
+         this.$.pager.onchange = function(){
+             self.page = self.$.pager.value;
+         }
+         this.$.pageleft.onclick = function(){
+             if (self.page > 0) {
+                 self.page--;
+                 self.$.pager.value = self.page;
+             }
+         }
+         this.$.pageright.onclick = function(){
+             if (self.page < self.maxpages) {
+                 self.page++;
+                 self.$.pager.value = self.page;
+             }
+         }
+     },
+     newdata: function(d){
+         this.rows = d;
+         this.maxpages = Math.ceil(d.length / this.pageSize);
+     }
+  });
+})();
+</script>
+</polymer-element>

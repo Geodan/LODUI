@@ -1,18 +1,21 @@
 var lodui = lodui || {};
 
-lodui.map = function(id, config){
+lodui.map = function(mapelement, config){
 	var self = this;
 	var active = d3.select(null);
-	var mapdiv = d3.select('#' + id);
+	var mapdiv = d3.select(mapelement);
 	this.tooltip = mapdiv.append('div').attr('id','maptooltip');
 	this.config = config;
 	this._layers = [];
 	
 	var center = config.center;
 	
-	var width = document.getElementById('map').clientWidth, //Math.max(960, window.innerWidth),
-		height = Math.max(1200,document.getElementById('map').clientHeight); //Math.max(500, window.innerHeight);
+	//var width = document.getElementById('map').clientWidth, //Math.max(960, window.innerWidth),
+		//height = Math.max(1200,document.getElementById('map').clientHeight); //Math.max(500, window.innerHeight);
 	
+	var width = mapelement.clientWidth, //Math.max(960, window.innerWidth),
+		height = Math.max(1200,mapelement.clientHeight); //Math.max(500, window.innerHeight);
+		
 	var tile = d3.geo.tile()
     .size([width, height]);
 	

@@ -1,0 +1,49 @@
+<polymer-element name='lod-browser'>
+<template>
+    <style>
+    
+    
+    
+    .item {
+        border-bottom: 1px dotted;
+    }
+    </style>
+    <h4>Browser</h4>
+    <core-list id="listbox" data="{{data}}" height="100">
+    <template>
+        <core-item class='item' on-tap="{{itemtapped}}">{{name}}</core-item>
+    </template>
+    </core-list>
+    
+</template>
+<script>
+(function(){
+  Polymer({
+     data: [],
+     ready: function(){
+         var self = this;
+         this.data = [];
+         /*
+         this.endpointurl = 'http://dbpedia.org';
+         var sparqlEndpoint = this.endpointurl + '/sparql';
+         var format = 'application/json';
+         var default_graph_uri = this.endpointurl;
+         var query = 'default-graph-uri='+ this.endpointurl + '&query=select+distinct+%3FConcept+where+%7B%5B%5D+a+%3FConcept%7D+LIMIT+100';
+         var uricomp = '?default-graph-uri=' + default_graph_uri + '&query=' + query + '&format='+ format;
+         var request_url = encodeURI(sparqlEndpoint) + uricomp;
+         d3.json(request_url, function(d){
+               self.data = d.results.bindings;
+         });
+         */
+         this.data = [
+            {name:'gasmeters'},
+            {name:'elecmeters'}
+         ];
+     },
+     itemtapped: function(a,b,c){
+         console.log(a,b,c);
+     }
+  });
+})();
+</script>
+</polymer-element>
