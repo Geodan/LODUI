@@ -8,21 +8,76 @@
         border-bottom: 1px dotted;
     }
     </style>
-    <h4>Browser</h4>
-    <core-list id="listbox" data="{{data}}" height="100">
-    <template>
-        <core-item class='item' on-tap="{{itemtapped}}">{{name}}</core-item>
-    </template>
-    </core-list>
-    
+    <h4>{{tree.title}}</h4>
+  
+    <template repeat="{{tree.children}}">
+        <div on-tap="{{itemtapped}}" value="{{url}}" class="">{{title}} <small>( {{publisher}} )</small>
+        	<h2>Metadata</h2>
+        	<template repeat="{{item in meta}}">
+        	{{item.name}} => {{item.value}} <br>
+        	</template>
+        </div>
+   </template>
+  
+   
 </template>
 <script>
+var tmp;
 (function(){
   Polymer({
      data: [],
+     tree: {
+        title: 'unknown',
+        url: 'http://lod.geodan.nl/cerisesg/datasets/', 
+        children: []
+     },
+     head: 'title',
+     
+     
      ready: function(){
          var self = this;
-         this.data = [];
+         tmp = this.tree;
+         var parseLOD = function(parent){
+             var self = this;
+             d3.json(parent.url, function(e,d){
+                parent.title = d[parent.url]['http://purl.org/dc/terms/title'][0].value;
+                parent.publisher = d[parent.url]['http://purl.org/dc/terms/publisher'][0].value;
+                parent.spatial = d[parent.url]['http://purl.org/dc/terms/spatial'][0].value;
+                parent.meta = [];
+                _(d[parent.url]).each(function(d,i){
+                	parent.meta.push({name:i , value: d[0].value});
+                });
+                
+                if (d[parent.url]['http://purl.org/dc/terms/description']){
+                    parent.description = d[parent.url]['http://purl.org/dc/terms/description'][0].value;
+                }
+                if (d[parent.url]['http://rdfs.org/ns/void#vocabulary']){
+                    parent.vocab = d[parent.url]['http://rdfs.org/ns/void#vocabulary'][0].value;
+                }
+                if (d[parent.url]['http://rdfs.org/ns/void#sparqlEndpoint']){
+                    parent.endpoint = d[parent.url]['http://rdfs.org/ns/void#sparqlEndpoint'][0].value;
+                }
+                if (d[parent.url]['http://purl.org/dc/terms/license']){
+                	parent.license = d[parent.url]['http://purl.org/dc/terms/license'][0].value;
+                }
+                
+                var dataset = d[parent.url]['http://www.w3.org/ns/dcat#dataset'];
+                
+                if (dataset){
+                    dataset.forEach(function(d){
+                        var child = {
+                                url: d.value,
+                                children: []
+                        };
+                        parent.children.push(child);
+                        parseLOD(child,d.value);
+                    });
+                }
+                
+             });
+         }
+         parseLOD(this.tree);
+         
          /*
          this.endpointurl = 'http://dbpedia.org';
          var sparqlEndpoint = this.endpointurl + '/sparql';
@@ -35,13 +90,13 @@
                self.data = d.results.bindings;
          });
          */
-         this.data = [
-            {name:'gasmeters'},
-            {name:'elecmeters'}
-         ];
+         
+
      },
-     itemtapped: function(a,b,c){
-         console.log(a,b,c);
+     itemtapped: function(event, detail, sender){
+         var url = sender.getAttribute('value');
+         console.log(url);
+         this.fire('tapped', url);
      }
   });
 })();

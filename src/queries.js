@@ -3,6 +3,24 @@ lodui.queries = function(){
 	this.sparqlEndpoint = 'http://lod.geodan.nl/sparql?format="text/csv"&query=';
 };
 
+lodui.queries.prototype.getAvgGasUse = function(){
+	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#> \
+		prefix locn: <http://www.w3.org/ns/locn#> \
+		select ?time (avg(?waarde) as ?value) \
+		from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
+		where { \
+			?meter a ebif:GasMeter . \
+			?meting a ebif:Measurement . \
+			?meting ebif:meter ?meter . \
+			?meting ebif:time ?time . \
+			?meting ebif:measuredValue ?waarde . \
+			filter (xsd:dateTime(?tijd) >= xsd:dateTime("2013-10-01T00:00:00") &&xsd:dateTime(?tijd) < xsd:dateTime("2013-10-02T00:00:00")) \
+		} \
+		group by ?tijd \
+		order by ?tijd';
+		return query;
+}
+
 lodui.queries.prototype.getGasMeters = function(){
 	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#> \
 		prefix locn: <http://www.w3.org/ns/locn#> \
@@ -12,7 +30,7 @@ lodui.queries.prototype.getGasMeters = function(){
 		where { \
             ?meter a ebif:GasMeter . \
             ?meter locn:address ?adres . \
-            ?adres locn:addressArea ?woonplaats . \
+            ?adres locn:postName ?woonplaats . \
             ?adres locn:thoroughfare ?straat . \
             ?adres locn:postCode ?postcode . \
             ?adres bag:huisnummer ?nummer . \
@@ -20,8 +38,8 @@ lodui.queries.prototype.getGasMeters = function(){
 		} \
 		order by ?woonplaats ?straat ?nummer';
 		var request_url = encodeURI(this.sparqlEndpoint) + encodeURIComponent(query);
-		return request_url;
-		
+		//return request_url;
+		return query;
 }
 lodui.queries.prototype.getMeterValues = function(meter){
 	var query = 'prefix ebif:<http://lod.geodan.nl/vocab/cerise-sg/ebif#>\
@@ -36,7 +54,8 @@ lodui.queries.prototype.getMeterValues = function(meter){
 		} \
 		order by ?time';
 	var request_url = encodeURI(this.sparqlEndpoint) + encodeURIComponent(query);
-	return request_url;
+	//return request_url;
+	return query;
 }
 lodui.queries.prototype.geteMeterValues = function(meter){
 	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#> \
@@ -53,7 +72,8 @@ lodui.queries.prototype.geteMeterValues = function(meter){
         order by ?time \
         ';
     var request_url = encodeURI(this.sparqlEndpoint) + encodeURIComponent(query);
-	return request_url; 
+	//return request_url;
+	return query;
 }
 
 lodui.queries.prototype.geocodedMeters = function(){
@@ -72,7 +92,7 @@ lodui.queries.prototype.geocodedMeters = function(){
                     ?meter locn:address ?adres . \
                     ?adres locn:postCode ?postcode . \
                     ?adres bag:huisnummer ?nummer . \
-                    ?adres locn:addressArea ?woonplaats . \
+                    ?adres locn:postName ?woonplaats . \
                     ?adres locn:thoroughfare ?straat . \
                     optional {?adres bag:huisletter ?letter .} \
                 } \
@@ -99,7 +119,7 @@ lodui.queries.prototype.geocodedMeters = function(){
                     ?meter locn:address ?adres . \
                     ?adres locn:postCode ?postcode . \
                     ?adres bag:huisnummer ?nummer . \
-                    ?adres locn:addressArea ?woonplaats . \
+                    ?adres locn:postName ?woonplaats . \
                     ?adres locn:thoroughfare ?straat . \
                     optional {?adres bag:huisletter ?letter} . \
                     filter (!bound(?letter)) . \
@@ -123,5 +143,6 @@ lodui.queries.prototype.geocodedMeters = function(){
         } \
         order by ?meter';
     var request_url = encodeURI(this.sparqlEndpoint) + encodeURIComponent(query);
-	return request_url;
+    //return request_url;
+	return query;
 }

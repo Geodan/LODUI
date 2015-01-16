@@ -1,51 +1,24 @@
 <polymer-element name='lod-map'>
 <template>
     <style>
-    leaflet-map {
-        height: 500px;
-      }
     </style>
     <h4>Map</h4>
-    <mypoly-map></mypoly-map>
-    <!--
-    <leaflet-map longitude="4.74909" latitude="52.8983" zoom="12">
-       <template repeat="{{row in rows}}">
-          <leaflet-marker 
-            longitude="{{row | long}}" latitude="{{row | lat}}" 
-            radius="300"
-            icon='{"iconUrl": "https://stendhalgame.org/images/mapmarker/dungeon.png"}'>
-            <template bind="{{row}}">
-                <h4>Meter:</h4> {{meter}}<br>
-                <h4>Adres: </h4>{{straat}} ,{{nummer}} {{letter}} <br>
-                {{postcode}},{{woonplaats}} <br>
-                <h4>Kenmerken </h4>{{oppervlakte}} m&sup2;, {{gebruiksdoel}}
-            </template>
-          </leaflet-marker>
-        </template>
-    </leaflet-map>
-    -->
+    <d3-map id="item-map" latitude="52.2" longitude="5.2" zoom="9">
+        <d3-maprasterlayer 
+            id="mapbox"
+            type="tms"
+            url="http://{s}.tiles.mapbox.com/v3/examples.map-i86nkdio/{z}/{x}/{y}.png"
+            ></d3-maprasterlayer>
+            
+        <d3-maplayer id="pathlayer"></d3-maplayer>
+        <d3-maplayer id="pointlayer"></d3-maplayer>
+    </d3-map>
 </template>
 <script>
 (function(){
-  //L.Icon.Default.imagePath = './bower_components/leaflet/dist/images'; //FIXME: this shouldn't be needed
   Polymer({
      ready: function(){
-         
-     },
-     newdata: function(d){
-         this.rows = d;
-     },
-     long: function(d){
-         if (d.geom){
-             return d.geom.replace('POINT(','').replace(')','').split(' ')[0];
-         }
-         else return 0;
-     },
-     lat: function(d){
-         if (d.geom){
-             return d.geom.replace('POINT(','').replace(')','').split(' ')[1];
-         }
-         else return 0;
+  
      }
   });
 })();

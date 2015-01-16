@@ -1,0 +1,184 @@
+<polymer-element name="cerise-chart" attributes="xlabel ylabel data">
+  <template>
+   <style>
+    :host {
+       display: block;
+       float: left;
+    }
+   
+   	text {
+            font: 12px sans-serif;
+    }
+	svg {
+		display: block;
+	}
+	#graph, svg {
+		margin: 0px;
+		padding: 0px;
+		height: 100%;
+		width: 100%;
+	}
+   </style>
+ 
+	<div id="graph">
+	</div>
+   </template>
+  <script>
+  
+  
+  
+  Polymer({
+  	 width: 1200,
+  	 height: 800,
+  	 counter:1,
+  	 xlabel: 'X-axis',
+  	 ylabel: "Y-axis",
+  	 created: function(){
+  	 	this.data = [{
+     	  		  type: "line",
+     	  		  //yAxis: 1,
+     	  		  key: 'temp',
+     	  		  values: [0,2,3,4,6,2,0]
+     	  }];
+  	 },
+     ready: function(){
+     	  
+     	 //graph(this.$.graphdiv, this.data);
+     },
+     dataChanged: function(){
+     	 var self = this;
+     	 var data = eval(self.data);
+     	 var chart = nv.models.lineChart()
+     	 	.x(function(d) {return d.x;})
+			.y(function(d) {return d.y;})
+            .margin({top: 10, right: 10, bottom: 10, left: 10})
+            .color(d3.scale.category10().range());
+        var starttime = data[0].values[0].key;
+        var endtime = data[0].values[data[0].values.length -1].key;
+        chart.xAxis
+			.tickValues([starttime,endtime])
+			.tickFormat(function(d) {
+				//return d3.time.format('%x')(new Date(d))
+				return new Date(d).toLocaleDateString();
+			  });
+		
+		  chart.yAxis
+		      .axisLabel('Q')
+			  .tickFormat(d3.format(',.2f'));
+/*
+		  chart.yAxis2
+		      .axisLabel('Temp.')
+			  .tickFormat(d3.format(',.2f'));
+*/		d3.select(self.$.graph).selectAll('svg').remove();
+        d3.select(self.$.graph).append('svg')
+            .datum(self.data)
+            .transition().duration(500).call(chart);
+          
+        //return chart;
+        /*
+		 graph(this.$.graph, data);
+		 function graph(el,data){
+				
+				var margin = {top: 20, right: 80, bottom: 30, left: 50},
+					width = (this.clientWidth || 400) - margin.left - margin.right,
+					height = (this.clientHeight || 400) - margin.top - margin.bottom;
+				//'2013-02-01 00:00:00'
+				var parseDate = d3.time.format("%Y-%m-%d %H:%M:%S").parse;
+				
+				var x = d3.time.scale()
+					.range([0, width]);
+				
+				var y = d3.scale.linear()
+					.range([height, 0]);
+					
+				var color = d3.scale.category10();
+				
+				var xAxis = d3.svg.axis()
+					.scale(x)
+					.orient("bottom");
+				xAxis.ticks(d3.time.week,2);
+				
+				var yAxis = d3.svg.axis()
+					.scale(y)
+					.orient("left");
+				
+				var yAxis2 = d3.svg.axis()
+					.scale(y)
+					.orient("right");
+				
+				var line = d3.svg.line()
+					.interpolate("basis")
+					.x(function(d) { return x(d.date); })
+					.y(function(d) { return y(d.value); });
+				
+				var svg = d3.select(el)
+					.attr("width", width + margin.left + margin.right)
+					.attr("height", height + margin.top + margin.bottom)
+				  svg.selectAll('g').remove();
+				var g= svg.append("g")
+					.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+				
+				  color.domain(d3.keys(data[0]).filter(function(key) { return key !== "key"; }));
+			
+				  data.forEach(function(d) {
+					//d.date = parseDate(d.key);
+					d.date = d.key;
+				  });
+				
+				  var entities = color.domain().map(function(name) {
+					return {
+					  name: name,
+					  values: data.map(function(d) {
+						return {date: d.date, value: +d[name]};
+					  })
+					};
+				  });
+				
+				  x.domain(d3.extent(data, function(d) { return d.date; }));
+				
+				  y.domain([
+					d3.min(entities, function(c) { return d3.min(c.values, function(v) { return v.value; }); }),
+					d3.max(entities, function(c) { return d3.max(c.values, function(v) { return v.value; }); })
+				  ]);
+				
+				  g.append("g")
+					  .attr("class", "x axis")
+					  .attr("transform", "translate(0," + height + ")")
+					  .call(xAxis);
+				
+				  g.append("g")
+					  .attr("class", "y axis")
+					  .call(yAxis)
+					.append("text")
+					  .attr("transform", "rotate(-90)")
+					  .attr("y", 6)
+					  .attr("dy", ".71em")
+					  .style("text-anchor", "end")
+					  .text(self.ylabel);
+				
+				  var entity = g.selectAll(".entity")
+					  .data(entities)
+					.enter().append("g")
+					  .attr("class", "entity");
+				  
+				  entity.append("path")
+					  .attr("class", "line")
+					  .attr("d", function(d) { 
+						return line(d.values); 
+					  })
+					  .style("stroke", function(d) { 
+						return color(d.name); 
+					  });
+				
+				  entity.append("text")
+					  .datum(function(d) { return {name: d.name, value: d.values[d.values.length - 1]}; })
+					  .attr("transform", function(d) { return "translate(" + x(d.value.date) + "," + y(d.value.value) + ")"; })
+					  .attr("x", 3)
+					  .attr("dy", ".35em")
+					  .text(function(d) { return d.name; });
+		  }*/
+	 }
+  });
+  
+  </script>
+</polymer-element>

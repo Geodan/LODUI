@@ -18,23 +18,7 @@
             
             <core-pages selected="{{selected}}">
                 <div class="page"><lod-grid id="grid"></lod-grid></div>
-                <div class="page">
-                    <div id="map">
-                    <d3-map id="item-map" latitude="52.2" longitude="5.2" zoom="3">
-    
-                    <d3-maprasterlayer 
-                        id="mapbox"
-                        type="tms"
-                        url="http://{s}.tiles.mapbox.com/v3/examples.map-i86nkdio/{z}/{x}/{y}.png"
-                        ></d3-maprasterlayer>
-                        
-                    <d3-maplayer id="pathlayer"></d3-maplayer>
-                    <d3-maplayer id="pointlayer"></d3-maplayer>
-                  </d3-map>
-                    
-                    </div>
-                    <!--<lod-map id="map"></lod-map>-->
-                </div>
+                <div class="page"><lod-map id="map"></lod-map></div>
             </core-pages>
         </core-header-panel>
     </div>
@@ -47,10 +31,23 @@
          
          var self = this;
          var request_url = queries.geocodedMeters();
-         d3.csv(request_url, function(d){
-            console.log(d);
-            self.$.grid.newdata(d);
-            //self.$.map.newdata(d);
+         d3.csv(request_url, function(data){
+            self.$.grid.newdata(data);
+         
+            var collection = {"type":"FeatureCollection","features":[]};
+            data.forEach(function(d,i){
+                var coords = d.geom.replace('POINT(','').replace(')','').split(' ');
+                d.x = parseFloat(coords[0]);
+                d.y = parseFloat(coords[1]);
+                var feature = {
+                    id: i,
+                    type: 'Feature',
+                    properties: d,
+                    geometry: {type: 'Point', coordinates: [d.x, d.y]}
+                };
+                collection.features.push(feature);
+            });
+            self.$['map'].$['pointlayer'].newdata(collection.features);
          });
          
          this.$.filter.addEventListener('apply', function(e) {
