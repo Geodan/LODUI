@@ -272,8 +272,8 @@ var scale = d3.scale.linear().domain([starttime, endtime]).range([0,(endtime - s
 var weatherT0 = 1359676800000 // 01 feb 2013 //1325372400000; //01 jan 2012 00:00
 var weatherTMax = 1364688000000 // 31 mar 2013 //1388527200000; //31 dec. 2013 23:00
 var timescale_weather = d3.scale.linear().domain([weatherT0, weatherTMax]).range([0,(weatherTMax - weatherT0)/timestep]);
-
-var map = new lodui.map('map', {center: [4.740008,52.872394]});
+var mapelement = document.getElementById('map');
+var map = new lodui.map(mapelement, {center: [4.740008,52.872394]});
 var colorscale = d3.scale.linear().domain([-5,20]).range([0,255]);
 var timechange = function(timestamp){
     

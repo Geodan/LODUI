@@ -1,0 +1,208 @@
+
+<polymer-element name="cerise-consumer">
+  <template>
+  	<style>
+
+  	:host {
+        display: block;
+        position: relative;
+        background-color: #eee;
+        overflow: hidden;
+
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+        -webkit-touch-callout: none;
+        -webkit-font-smoothing: antialiased;
+      }
+      
+    #top {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: 1;
+      }
+      
+     #content {
+        position: absolute;
+        overflow:auto;
+        height: 100%;
+        width: 100%;
+      }
+      #page0 {
+      	  height: 100%;
+      	  overflow: auto;
+      }
+      .row {
+      	  height: 40px;
+      	  font-size: 24pt;
+      	  padding: 5px;
+      	  background: orange;
+      	  border: 1px black;
+      	  cursor: pointer;
+      }
+      
+      .row.selected {
+      	  background: gray;
+      }
+         
+      paper-spinner {
+      	  position: absolute;
+      	  left: 45%;
+      	  top: 45%;
+      }
+      paper-spinner.blue::shadow .circle {
+		border-color: #4285f4;
+	  }
+	  
+	  #hero1 {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: orange;
+  }
+  #hero2 {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: blue;
+  }
+  chart {
+  	  width: 1200px;
+  }
+
+     </style>
+     
+
+
+    <core-header-panel flex>
+    <core-toolbar>
+     <core-ajax
+     	auto
+     	id="address_request"
+     	params='{"format":"text/csv","query":""}'
+		url="http://lod.geodan.nl/sparql"
+		handleAs="text"
+		on-core-response="{{handleResponse}}">
+	 </core-ajax>
+	 <core-ajax
+     	auto
+     	id="meter_request"
+     	params='{"format":"text/csv","query":""}'
+		url="http://lod.geodan.nl/sparql"
+		handleAs="text"
+		on-core-response="{{handleMeterResponse}}">
+	 </core-ajax>
+     <paper-input id="postcode" label="POSTCODE"></paper-input>
+     <paper-icon-button id="search" icon="search" on-tap="{{getaddresses}}"></paper-icon-button>
+    </core-toolbar>
+   		<div id="content" vertical layout>
+   		<core-animated-pages id="pages" selected=0 fit transitions="cross-fade">
+   		<section id="page1">
+			<div cross-fade>
+			<paper-spinner id="spinner" class="blue"></paper-spinner>
+				<core-list id="addresslist" on-core-activate="{{meterHandler}}}" data="{{addresses}}" height="20" fit>
+					<template>
+					<div class="row {{ {selected: selected}| tokenList }}">
+					{{model.straat}} {{model.nummer}} {{model.letter}}
+					</div>
+					</template>
+				</core-list>
+			</div>
+		</section>
+		<section id="page2">
+			<div cross-fade>
+				<template bind="{{selectedMeter}}">
+					{{straat}} {{nummer}} {{letter}}<br>
+					{{postcode}} {{woonplaats}}<br>
+				</template>
+				<cerise-chart id="chart" width="1200" height="600" ylabel="KiloJoule"></cerise-chart>
+			</div>
+		</section>
+    	</core-animated-pages>
+    	</div>
+    </template>
+    </core-header-panel> 
+
+  
+  
+  </template>
+  <script>
+    Polymer({
+      
+      ready: function() {
+      	  this.selectedMeter= {};
+      	  this.meterData= [];
+      	  
+      	  //this.$.addresslist.on('core-activate',function(d){
+      	  //		  console.log(d);
+      	  //});
+      },
+      getaddresses: function(){
+      	  this.$.spinner.active = true;
+      	  this.$.pages.selected = 0;
+      	  this.addresses = [];
+      	  var postcode = this.$.postcode.value;
+      	  //TODO use postcode
+      	  var params = {
+      	  	  	format:'text/csv',
+      	  	  	query: queries.getGasMeters()
+      	  }
+      	  this.$.address_request.params = JSON.stringify(params);
+      	  this.$.address_request.go();
+      },
+      created: function(){
+      	  this.addresses = [];
+      },
+      handleResponse: function(res){
+      	  var self = this;
+      	  var arr = d3.csv.parse(res.detail.response);
+      	  this.addresses = arr;
+      	  window.setTimeout(function(){
+      	  	self.$.spinner.active = false;
+      	  },5000);
+      },
+      meterHandler: function(event,detail,sender){
+      	  var meter = detail.data.meter;
+      	  this.selectedMeter = detail.data;
+      	  var params = {
+      	  	  	format:'text/csv',
+      	  	  	query: queries.getMeterValues(meter)
+      	  }
+      	  this.$.meter_request.params = JSON.stringify(params);
+      	  this.$.meter_request.go();
+      },
+      handleMeterResponse: function(res){
+		this.$.pages.selected = 1;
+		var self = this;
+		var arr = d3.csv.parse(res.detail.response);
+		var cf = crossfilter(arr);
+		var bymonth = cf.dimension(function(d) { return d3.time.month(new Date(d.time)).getTime(); });
+		var byweek = cf.dimension(function(d) { return d3.time.week(new Date(d.time)).getTime(); });
+		var byday = cf.dimension(function(d) { return d3.time.day(new Date(d.time)).getTime(); });
+		var byhour = cf.dimension(function(d) { return d3.time.hour(new Date(d.time)).getTime();});
+		var bymonthmeasure = bymonth.group().reduceSum(function(d){return d.value / (24 * 30);}).all();
+		var byweekmeasure = byweek.group().reduceSum(function(d){return d.value / (24 * 7);}).all();
+		var bydaymeasure = byday.group().reduceSum(function(d){return d.value / 24;}).all();
+		var byhourmeasure = byhour.group().reduceSum(function(d){return d.value;}).all();
+		bydaymeasure.forEach(function(d){d.x = d.key; d.y = d.value;});
+		var data = [{
+     	  		  
+     	  		  
+     	  		  key: 'temp',
+     	  		  values: bydaymeasure
+     	  }];
+     	  
+		this.$.chart.data = data;
+      },
+    });
+  </script>
+</polymer-element>

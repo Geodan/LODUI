@@ -96,9 +96,10 @@ lodui.map = function(mapelement, config){
 
 		image.enter().append("image")
 		  .attr("xlink:href", function(d) { 
+		  	return "http://" + ["a", "b", "c", "d"][Math.random() * 4 | 0] + ".basemaps.cartocdn.com/light_all/" + d[2] + "/" + d[0] + "/" + d[1] + ".png"; 
 			//return "http://" + ["a", "b", "c", "d"][Math.random() * 4 | 0] + ".tiles.mapbox.com/v3/examples.map-vyofok3q/" + d[2] + "/" + d[0] + "/" + d[1] + ".png"; 
 			//return "http://" + ["a", "b", "c"][Math.random() * 3 | 0] + ".tile.stamen.com/watercolor/" + d[2] + "/" + d[0] + "/" + d[1] + ".png";
-			return "http://" + ["a", "b", "c"][Math.random() * 3 | 0] + ".www.toolserver.org/tiles/bw-mapnik/" + d[2] + "/" + d[0] + "/" + d[1] + ".png";
+			//return "http://" + ["a", "b", "c"][Math.random() * 3 | 0] + ".www.toolserver.org/tiles/bw-mapnik/" + d[2] + "/" + d[0] + "/" + d[1] + ".png";
 		  })
 		  .attr("width", 1)
 		  .attr("height", 1)
