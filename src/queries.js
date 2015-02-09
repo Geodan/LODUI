@@ -1,3 +1,4 @@
+var lodui = lodui || {};
 
 lodui.queries = function(){
 	this.sparqlEndpoint = 'http://lod.geodan.nl/sparql?format="text/csv"&query=';
@@ -14,14 +15,14 @@ lodui.queries.prototype.getAvgGasUse = function(){
 			?meting ebif:meter ?meter . \
 			?meting ebif:time ?time . \
 			?meting ebif:measuredValue ?waarde . \
-			filter (xsd:dateTime(?tijd) >= xsd:dateTime("2013-10-01T00:00:00") &&xsd:dateTime(?tijd) < xsd:dateTime("2013-10-02T00:00:00")) \
+			filter (xsd:dateTime(?time) >= xsd:dateTime("2013-01-01T00:00:00") &&xsd:dateTime(?time) < xsd:dateTime("2013-12-31T00:00:00")) \
 		} \
-		group by ?tijd \
-		order by ?tijd';
+		group by ?time \
+		order by ?time';
 		return query;
 }
 
-lodui.queries.prototype.getGasMeters = function(){
+lodui.queries.prototype.getGasMeters = function(postcode){
 	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#> \
 		prefix locn: <http://www.w3.org/ns/locn#> \
 		prefix bag: <http://lod.geodan.nl/vocab/bag#> \
@@ -35,8 +36,10 @@ lodui.queries.prototype.getGasMeters = function(){
             ?adres locn:postCode ?postcode . \
             ?adres bag:huisnummer ?nummer . \
             optional {?adres bag:huisletter ?letter .} \
+            FILTER regex(?postcode, "'+postcode+'","i") . \
 		} \
-		order by ?woonplaats ?straat ?nummer';
+		order by ?woonplaats ?straat ?nummer \
+		LIMIT 20';
 		var request_url = encodeURI(this.sparqlEndpoint) + encodeURIComponent(query);
 		//return request_url;
 		return query;
@@ -50,7 +53,7 @@ lodui.queries.prototype.getMeterValues = function(meter){
 		    ?meting ebif:meter <'+meter+'> . \
 		    ?meting ebif:time ?time . \
 		    ?meting ebif:measuredValue ?value . \
-		    filter (xsd:dateTime(?time) >= xsd:dateTime("2013-02-01T00:00:00") && xsd:dateTime(?time) < xsd:dateTime("2013-03-31T00:00:00"))\
+		    filter (xsd:dateTime(?time) >= xsd:dateTime("2013-01-01T00:00:00") && xsd:dateTime(?time) < xsd:dateTime("2013-12-31T00:00:00"))\
 		} \
 		order by ?time';
 	var request_url = encodeURI(this.sparqlEndpoint) + encodeURIComponent(query);

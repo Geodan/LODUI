@@ -1,0 +1,237 @@
+<polymer-element name="cerise-netmanager">
+  <template>
+  	<style>
+
+	:host {
+		display: block;
+		position: relative;
+		background-color: #eee;
+		overflow: hidden;
+		
+		-webkit-user-select: none;
+		-moz-user-select: none;
+		-ms-user-select: none;
+		user-select: none;
+		
+		-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+		-webkit-touch-callout: none;
+		-webkit-font-smoothing: antialiased;
+	}
+	core-header-panel {
+		height: 100%;
+	}
+	core-scroll-header-panel {
+		height: 100%;
+	}
+	leaflet-map {
+		height: 100%;
+	}
+	core-toolbar {
+		background: blue;
+	} 
+		
+	#pages {
+		position: absolute;
+		overflow:auto;
+		height: 90%;
+		width: 100%;
+	}
+	
+	
+	.list {
+		position: absolute;
+		top:0px;
+		height: 100%;
+		width: 100%;
+	}
+	.row {
+		display: inline-block;
+		background: white;
+		box-sizing: border-box;
+		width: 100px;
+		height: 100px;
+		margin: 0px;
+		padding: 16px;
+		border-radius: 0px;
+		border-color: black;
+		cursor: pointer;
+	}
+	
+	.row.selected {
+		background: gray;
+	}
+	 
+	
+	.address {
+		padding: 5px;
+		width: 90%;
+	}
+	paper-fab {
+		position: fixed;
+		bottom: 10px;
+		right: 10px;
+		color: #fff;
+		margin-right:2em;
+	}
+	
+	paper-fab.blue {
+	  background: #5677fc;
+	}
+	
+	paper-fab.green {
+	  background: #259b24;
+	}
+	
+	paper-fab.yellow {
+	  background: #ffeb3b;
+	}
+	
+	paper-tabs, core-toolbar {
+	  background-color: #00bcd4;
+	  color: #fff;
+	  box-shadow: 0px 3px 2px rgba(0, 0, 0, 0.2);
+	}
+
+     </style>
+     
+     <core-ajax
+     	auto
+     	id="address_request"
+     	params='{"format":"text/csv","query":""}'
+		url="http://lod.geodan.nl/sparql"
+		handleAs="text"
+		on-core-response="{{handleResponse}}">
+	 </core-ajax>
+
+
+  <core-header-panel flex>
+    <core-toolbar>
+    	<h3>Cerise Netbeheerder App</h3>
+    </core-toolbar>
+    <core-drawer-panel id="drawer">
+      <div drawer>
+      	<cerise-chart id="chart">
+			<h4>Meterinfo:</h4>
+			<template bind="{{selectedAddress}}">
+				{{straat}} {{nummer}} {{letter}}<br>
+				{{postcode}} {{woonplaats}} <br>
+				<b>Oppervlak:</b> {{oppervlakte}} m&sup2;<br>
+				<b>Bestemming:</b> {{gebruiksdoel}} <br>
+			</template>
+      	</cerise-chart>
+      </div>
+      <div main layout vertical>
+		<paper-tabs selected="{{selected}}">
+			<paper-tab>Kaart</paper-tab>
+			<paper-tab>Tabel</paper-tab>
+		</paper-tabs>
+		<core-animated-pages id="pages" selected="{{selected}}" transitions="cross-fade">
+			<section id="page1">
+				<div class='list' cross-fade layout vertical>
+					<leaflet-map id="map" longitude="4.74" latitude="52.89" zoom="16">
+						<template repeat="{{addresses}}">
+						  <leaflet-circle id="{{meter}}" on-click="{{meterHandler}}" longitude="{{lon}}" latitude="{{lat}}" radius="10">
+						  {{straat}} {{nummer}} {{letter}}<br>
+						  {{postcode}} {{woonplaats}}
+						  </leaflet-circle>
+						</template>
+						<!--
+ 					<leaflet-tilelayer
+    url="http://geodata.nationaalgeoregister.nl/wmts/brtachtergrondkaart?"
+    layers="wegvakken" format="image/png" transparent>
+						<leaflet-tilelayer-wms
+    url="http://geodata.nationaalgeoregister.nl/nwbwegen/wms?"
+    layers="wegvakken" format="image/png" transparent>-->
+					</leaflet-map>
+				</div>
+			</section>
+			<section id="page2">
+				<div cross-fade>
+				<sortable-table id="table" rowTemplate="simpleRowTemplate" data="{{addresses}}" columns="{{columns}}">
+				<template id="simpleRowTemplate">
+					<td><a href="{{record.row.meter}}">[data]</a></td>
+					<td>{{record.row.straat}}</td>
+					<td>{{record.row.nummer}}</td>
+					<td>{{record.row.letter}}</td>
+					<td>{{record.row.postcode}}</td>
+					<td>{{record.row.woonplaats}}</td>
+					<td>{{record.row.oppervlakte}}</td>
+					<td>{{record.row.gebruiksdoel}}</td>
+				</template>
+				</sortable-table>
+				</div>   
+			</section>
+		</core-animated-pages>
+    </div>
+    </core-drawer-panel>
+    </core-header-panel> 
+
+  
+  
+  </template>
+  <script>
+ 
+    Polymer({
+      lon: function(geom){
+      	  return geom.replace('POINT(','').replace(')','').split(' ')[0];
+      },
+      lat: function(geom){
+      	  return geom.replace('POINT(','').replace(')','').split(' ')[1];
+      },
+      ready: function() {
+      	var self = this;
+      	this.$.drawer.closeDrawer();
+      	this.addresses = [];
+		this.selectedMeter= {};
+		this.rawmeterData= [];
+		this.rawavgData=[];
+		this.rawweatherData=[];
+		this.columns = [
+			{name: 'meter', title: 'Linked data'},
+			{name: 'straat'},
+			{name: 'nummer'},
+			{name: 'letter'},
+			{name: 'postcode'},
+			{name: 'woonplaats'},
+			{name: 'oppervlakte'},
+			{name: 'gebruiksdoel'}
+			];
+		this.getaddresses();
+      },
+      getaddresses: function(){
+      	  this.$.pages.selected = 0;
+      	  this.addresses = [];
+      	  var postcode = '1788'; //this.$.postcode.value || '1788';
+      	  //TODO use postcode
+      	  var params = {
+			format:'text/csv',
+			query: queries.geocodedMeters()
+      	  }
+      	  this.$.address_request.params = JSON.stringify(params);
+      	  this.$.address_request.go();
+      },
+      created: function(){
+      	  this.addresses = [];
+      },
+      handleResponse: function(res){
+      	  var self = this;
+      	  var arr = d3.csv.parse(res.detail.response);
+      	  arr.forEach(function(d){
+			  d.lat = self.lat(d.geom);
+			  d.lon = self.lon(d.geom);
+      	  });
+      	  this.addresses = arr;
+      },
+      handleSelect: function(e,d,c){
+      	  console.log(c.id);
+      },
+      meterHandler: function(event, detail, sender){
+      	  this.selectedAddress = event.target.templateInstance.model;
+      	  this.$.chart.loadMeter(sender.id);
+      	  this.$.drawer.openDrawer();
+      }
+
+      
+    });
+  </script>
+</polymer-element>

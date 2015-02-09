@@ -11,173 +11,267 @@
     }
 	svg {
 		display: block;
-	}
-	#graph, svg {
-		margin: 0px;
-		padding: 0px;
+		width: 100%;
 		height: 100%;
+	}
+	#graph1 {
+		margin-right:0px;
+		padding: 0px;
+		height: 200px;
 		width: 100%;
 	}
+	#graph2 {
+		margin-right: 0px;
+		padding: 0px;
+		height: 200px;
+		width: 100%;
+	}
+	.nv-line { 
+		fill: none; /* some bug in nvd3 keeps filling the line */
+		stroke-width: 2px;
+	}
+	.nv-series-0,.nv-series-1 {
+		stroke-width: 0px;
+		fill-opacity: 0;
+	}
    </style>
- 
-	<div id="graph">
+ 	 <core-ajax
+     	auto
+     	id="meter_request"
+     	params='{"format":"text/csv","query":""}'
+		url="http://lod.geodan.nl/sparql"
+		handleAs="text"
+		on-core-response="{{handleMeterResponse}}">
+	 </core-ajax>
+	 <core-ajax
+     	auto
+     	id="avg_request"
+     	params='{"format":"text/csv","query":""}'
+		url="http://lod.geodan.nl/sparql"
+		handleAs="text"
+		on-core-response="{{handleAvgResponse}}">
+	 </core-ajax>
+		<div class='address' layout horizontal>
+			<div flex>
+			<content></content>
+			<b>Tijdseenheid:</b>
+			<paper-dropdown-menu label="tijdseenheid">
+				<paper-dropdown class="dropdown">
+					<core-menu id='interval' class="menu" selected="1" on-core-select="{{selectAction}}">
+						<!--<paper-item value='hour'>Uur</paper-item>-->
+						<paper-item value='day'>Dag</paper-item>
+						<paper-item value='week'>Week</paper-item>
+						<paper-item value='month'>Maand</paper-item>
+					</core-menu>
+				</paper-dropdown>
+			</paper-dropdown-menu>
+			</div>
+		</div>
+	<div class='with-3d-shadow with-transitions' id="graph1">
+	</div>
+	<div class='with-3d-shadow with-transitions' id="graph2">
 	</div>
    </template>
   <script>
-  
-  
-  
+      var transpose = function(arr, type){
+    	var cf = crossfilter(arr);
+    	var dim, measure;
+    	
+    	switch (type){
+    	 case 'month':
+    	 	 dim = cf.dimension(function(d) { return d3.time.month(new Date(d.time)).getTime(); });
+ 	 		 return dim.group().reduceSum(function(d){return d.value / (24 * 30);}).all();
+ 	 		 break;
+    	 case 'week':
+    	 	 dim = cf.dimension(function(d) { return d3.time.week(new Date(d.time)).getTime(); });
+    	 	 return dim.group().reduceSum(function(d){return d.value / (24 * 7);}).all();
+    	 	 break;
+    	 case 'day':
+    	 	 dim = cf.dimension(function(d) { return d3.time.day(new Date(d.time)).getTime(); });
+    	 	 return dim.group().reduceSum(function(d){return d.value / 24;}).all();
+    	 	 break;
+    	 case 'hour':
+    	 	 dim = cf.dimension(function(d) { return d3.time.hour(new Date(d.time)).getTime();});
+    	 	 return dim.group().reduceSum(function(d){return d.value;}).all();
+    	 	 break;
+    	 default:
+    	 	 console.error('Wrong type: ',type);
+    	 	 break;
+    	}
+    }
+
   Polymer({
-  	 width: 1200,
-  	 height: 800,
-  	 counter:1,
-  	 xlabel: 'X-axis',
-  	 ylabel: "Y-axis",
   	 created: function(){
-  	 	this.data = [{
-     	  		  type: "line",
-     	  		  //yAxis: 1,
-     	  		  key: 'temp',
-     	  		  values: [0,2,3,4,6,2,0]
-     	  }];
   	 },
      ready: function(){
-     	  
-     	 //graph(this.$.graphdiv, this.data);
+     	var self = this;
+     	this.data = [];
+  	 	this.weatherdata = [];
+		this.rawmeterData= [];
+		this.rawavgData=[];
+		this.rawweatherData=[];
+      	this.selectedMeter= {};
+
+     	 //Get weather data
+		d3.csv('./data/station_210_2013.csv', function(response){
+			var date = function(d){
+				//Trick to add zero padding to hour so it orders correctly
+				var string = d.YYYYMMDD;
+				var year = string.substr(0,4);
+				var month = string.substr(4,2) -1;//jscript month starts at 0
+				var day = string.substr(6,2);
+				var hour = parseInt(d.HH);
+				return new Date(year, month, day,hour);
+			}	
+			response.forEach(function(d){
+				self.rawweatherData.push({
+					time: date(d).getTime(),
+					value: d.T /10
+				});
+			});
+		});
+		//Get the avg. usage values
+		//TODO: make avg based on location neighbourhood
+		var params = {
+			format:'text/csv',
+			query: queries.getAvgGasUse()
+		}
+		this.$.avg_request.params = params;
      },
      dataChanged: function(){
      	 var self = this;
      	 var data = eval(self.data);
      	 var chart = nv.models.lineChart()
-     	 	.x(function(d) {return d.x;})
-			.y(function(d) {return d.y;})
-            .margin({top: 10, right: 10, bottom: 10, left: 10})
-            .color(d3.scale.category10().range());
-        var starttime = data[0].values[0].key;
+     	 	.options({
+                transitionDuration: 300,
+                useInteractiveGuideline: true
+            })
+			.color(d3.scale.category10().range())
+			.tooltips(false);
+		var starttime = data[0].values[0].key;
         var endtime = data[0].values[data[0].values.length -1].key;
         chart.xAxis
 			.tickValues([starttime,endtime])
 			.tickFormat(function(d) {
-				//return d3.time.format('%x')(new Date(d))
 				return new Date(d).toLocaleDateString();
 			  });
 		
-		  chart.yAxis
+		chart.yAxis 
 		      .axisLabel('Q')
 			  .tickFormat(d3.format(',.2f'));
-/*
-		  chart.yAxis2
-		      .axisLabel('Temp.')
-			  .tickFormat(d3.format(',.2f'));
-*/		d3.select(self.$.graph).selectAll('svg').remove();
-        d3.select(self.$.graph).append('svg')
+
+		//  chart.yAxis2
+		//      .axisLabel('Temp.')
+		//	  .tickFormat(d3.format(',.2f'));
+		d3.select(self.$.graph1).selectAll('svg').remove();
+        d3.select(self.$.graph1).append('svg')
             .datum(self.data)
             .transition().duration(500).call(chart);
-          
+        window.setTimeout(function(){
+			//without timeout, chart takes wrong width/height
+			chart.update();
+        },100);
+        nv.utils.windowResize(chart.update);    
         //return chart;
-        /*
-		 graph(this.$.graph, data);
-		 function graph(el,data){
-				
-				var margin = {top: 20, right: 80, bottom: 30, left: 50},
-					width = (this.clientWidth || 400) - margin.left - margin.right,
-					height = (this.clientHeight || 400) - margin.top - margin.bottom;
-				//'2013-02-01 00:00:00'
-				var parseDate = d3.time.format("%Y-%m-%d %H:%M:%S").parse;
-				
-				var x = d3.time.scale()
-					.range([0, width]);
-				
-				var y = d3.scale.linear()
-					.range([height, 0]);
-					
-				var color = d3.scale.category10();
-				
-				var xAxis = d3.svg.axis()
-					.scale(x)
-					.orient("bottom");
-				xAxis.ticks(d3.time.week,2);
-				
-				var yAxis = d3.svg.axis()
-					.scale(y)
-					.orient("left");
-				
-				var yAxis2 = d3.svg.axis()
-					.scale(y)
-					.orient("right");
-				
-				var line = d3.svg.line()
-					.interpolate("basis")
-					.x(function(d) { return x(d.date); })
-					.y(function(d) { return y(d.value); });
-				
-				var svg = d3.select(el)
-					.attr("width", width + margin.left + margin.right)
-					.attr("height", height + margin.top + margin.bottom)
-				  svg.selectAll('g').remove();
-				var g= svg.append("g")
-					.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-				
-				  color.domain(d3.keys(data[0]).filter(function(key) { return key !== "key"; }));
-			
-				  data.forEach(function(d) {
-					//d.date = parseDate(d.key);
-					d.date = d.key;
-				  });
-				
-				  var entities = color.domain().map(function(name) {
-					return {
-					  name: name,
-					  values: data.map(function(d) {
-						return {date: d.date, value: +d[name]};
-					  })
-					};
-				  });
-				
-				  x.domain(d3.extent(data, function(d) { return d.date; }));
-				
-				  y.domain([
-					d3.min(entities, function(c) { return d3.min(c.values, function(v) { return v.value; }); }),
-					d3.max(entities, function(c) { return d3.max(c.values, function(v) { return v.value; }); })
-				  ]);
-				
-				  g.append("g")
-					  .attr("class", "x axis")
-					  .attr("transform", "translate(0," + height + ")")
-					  .call(xAxis);
-				
-				  g.append("g")
-					  .attr("class", "y axis")
-					  .call(yAxis)
-					.append("text")
-					  .attr("transform", "rotate(-90)")
-					  .attr("y", 6)
-					  .attr("dy", ".71em")
-					  .style("text-anchor", "end")
-					  .text(self.ylabel);
-				
-				  var entity = g.selectAll(".entity")
-					  .data(entities)
-					.enter().append("g")
-					  .attr("class", "entity");
-				  
-				  entity.append("path")
-					  .attr("class", "line")
-					  .attr("d", function(d) { 
-						return line(d.values); 
-					  })
-					  .style("stroke", function(d) { 
-						return color(d.name); 
-					  });
-				
-				  entity.append("text")
-					  .datum(function(d) { return {name: d.name, value: d.values[d.values.length - 1]}; })
-					  .attr("transform", function(d) { return "translate(" + x(d.value.date) + "," + y(d.value.value) + ")"; })
-					  .attr("x", 3)
-					  .attr("dy", ".35em")
-					  .text(function(d) { return d.name; });
-		  }*/
-	 }
+	 },
+	 weatherdataChanged: function(){
+	 	 var self = this;
+     	 var weatherdata = eval(self.weatherdata);
+     	 var chart2 = nv.models.lineChart()
+     	 	.options({
+                transitionDuration: 300,
+                useInteractiveGuideline: true
+            })
+			.color(d3.scale.category10().range())
+			.tooltips(false);
+		var starttime = weatherdata[0].values[0].key;
+        var endtime = weatherdata[0].values[weatherdata[0].values.length -1].key;
+        chart2.xAxis
+			.tickValues([starttime,endtime])
+			.tickFormat(function(d) {
+				return new Date(d).toLocaleDateString();
+			  });
+		
+		chart2.yAxis 
+		      .axisLabel('T (C)')
+			  .tickFormat(d3.format(',.2f'));
+
+		//  chart.yAxis2
+		//      .axisLabel('Temp.')
+		//	  .tickFormat(d3.format(',.2f'));
+		d3.select(self.$.graph2).selectAll('svg').remove();
+        d3.select(self.$.graph2).append('svg')
+            .datum(self.weatherdata)
+            .transition().duration(500).call(chart2);
+        window.setTimeout(function(){
+			//without timeout, chart takes wrong width/height
+			chart2.update();
+        },100);
+        nv.utils.windowResize(chart2.update); 
+     },
+     loadMeter: function(meter){
+      	  var params = {
+      	  	  	format:'text/csv',
+      	  	  	query: queries.getMeterValues(meter)
+      	  }
+      	  this.$.meter_request.params = JSON.stringify(params);
+      	  this.$.meter_request.go();
+      },
+      handleAvgResponse: function(res){
+		this.rawavgData = d3.csv.parse(res.detail.response);
+		this.refresh();
+      },
+      handleMeterResponse: function(res){
+		this.rawmeterData = d3.csv.parse(res.detail.response);
+		this.refresh();
+      },
+      refresh: function(){
+      	var interval = this.$.interval.selectedItem.getAttribute('value');
+      	var values = transpose(this.rawmeterData,interval);
+		values.forEach(function(d){
+				d.x = d.key;
+				d.y = d.value;
+		});
+		
+		var avgmeasure = transpose(this.rawavgData,interval);
+		avgmeasure.forEach(function(d){
+				d.x = d.key;
+				d.y = d.value;
+		});
+		var tempValues = transpose(this.rawweatherData,interval);
+		tempValues.forEach(function(d){
+			d.x = d.key;
+			d.y = d.value;
+		});
+		var data = [{
+     	  		  key: 'Eigen verbruik',
+     	  		  color: "#2ca02c",
+     	  		  type: 'line',
+     	  		  yAxis: 1,
+     	  		  values: values
+     	  },{
+     	  		  key: 'Buurtgemiddelde',
+     	  		  color: "orange",
+     	  		  type: 'line',
+     	  		  yAxis: 1,
+     	  		  values: avgmeasure
+     	  }
+     	];
+     	var weatherdata = [
+     		{
+     	  		  key: 'Temperatuur',
+     	  		  color: "blue",
+     	  		  type: 'line',
+     	  		  yAxis: 2,
+     	  		  values: tempValues
+     	  }
+     	];
+		this.data = data;
+		this.weatherdata = weatherdata;  
+      },
+      selectAction: function(e, detail) {
+		  this.refresh();
+	  }
   });
   
   </script>

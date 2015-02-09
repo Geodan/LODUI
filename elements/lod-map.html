@@ -3,16 +3,16 @@
     <style>
     </style>
     <h4>Map</h4>
-    <d3-map id="item-map" latitude="52.2" longitude="5.2" zoom="9">
-        <d3-maprasterlayer 
+    <g-map id="item-map" latitude="52.2" longitude="5.2" zoom="9">
+        <g-maprasterlayer 
             id="mapbox"
             type="tms"
             url="http://{s}.tiles.mapbox.com/v3/examples.map-i86nkdio/{z}/{x}/{y}.png"
-            ></d3-maprasterlayer>
+            ></g-maprasterlayer>
             
-        <d3-maplayer id="pathlayer"></d3-maplayer>
-        <d3-maplayer id="pointlayer"></d3-maplayer>
-    </d3-map>
+        <g-maplayer id="pathlayer"></g-maplayer>
+        <g-maplayer id="pointlayer"></g-maplayer>
+    </g-map>
 </template>
 <script>
 (function(){
