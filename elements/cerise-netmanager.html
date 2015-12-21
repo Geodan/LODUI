@@ -135,14 +135,17 @@
 						  {{postcode}} {{woonplaats}}
 						  </leaflet-circle>
 						</template>
-						<!--
- 					<leaflet-tilelayer
+						
+ 					<!--<leaflet-tilelayer
     url="http://geodata.nationaalgeoregister.nl/wmts/brtachtergrondkaart?"
     layers="wegvakken" format="image/png" transparent>
 						<leaflet-tilelayer-wms
-    url="http://geodata.nationaalgeoregister.nl/nwbwegen/wms?"
-    layers="wegvakken" format="image/png" transparent>-->
-					</leaflet-map>
+    url="http://research.geodan.nl/service/geoserver/cerise/wms"
+    layers="laagspanning" format="image/png" transparent>
+    	<leaflet-tilelayer-wms
+    url="http://research.geodan.nl/service/geoserver/cerise/wms"
+    layers="middenspanning" format="image/png" transparent>
+					</leaflet-map>-->
 				</div>
 			</section>
 			<section id="page2">

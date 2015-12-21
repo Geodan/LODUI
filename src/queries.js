@@ -5,10 +5,10 @@ lodui.queries = function(){
 };
 
 lodui.queries.prototype.getAvgGasUse = function(){
-	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#> \
+	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/ebif#> \
 		prefix locn: <http://www.w3.org/ns/locn#> \
 		select ?time (avg(?waarde) as ?value) \
-		from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
+		from <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> \
 		where { \
 			?meter a ebif:GasMeter . \
 			?meting a ebif:Measurement . \
@@ -23,11 +23,11 @@ lodui.queries.prototype.getAvgGasUse = function(){
 }
 
 lodui.queries.prototype.getGasMeters = function(postcode){
-	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#> \
+	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/ebif#> \
 		prefix locn: <http://www.w3.org/ns/locn#> \
 		prefix bag: <http://lod.geodan.nl/vocab/bag#> \
 		select ?meter ?woonplaats ?straat ?nummer ?letter ?postcode \
-		from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
+		from <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> \
 		where { \
             ?meter a ebif:GasMeter . \
             ?meter locn:address ?adres . \
@@ -45,9 +45,9 @@ lodui.queries.prototype.getGasMeters = function(postcode){
 		return query;
 }
 lodui.queries.prototype.getMeterValues = function(meter){
-	var query = 'prefix ebif:<http://lod.geodan.nl/vocab/cerise-sg/ebif#>\
+	var query = 'prefix ebif:<http://lod.geodan.nl/vocab/ebif#>\
 		select ?time ?value \
-		from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
+		from <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> \
 		where { \
 		    ?meting a ebif:Measurement . \
 		    ?meting ebif:meter <'+meter+'> . \
@@ -61,9 +61,9 @@ lodui.queries.prototype.getMeterValues = function(meter){
 	return query;
 }
 lodui.queries.prototype.geteMeterValues = function(meter){
-	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#> \
+	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/ebif#> \
         select distinct?time bif:either(min(?value) > 0,0,min(?value)) as ?teruglevering (max(?value) as ?levering) \
-        from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
+        from <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> \
         where { \
             ?meting a ebif:Measurement . \
             ?meting ebif:meter <'+meter+'> . \
@@ -81,23 +81,23 @@ lodui.queries.prototype.geteMeterValues = function(meter){
 
 lodui.queries.prototype.geocodedMeters = function(){
 	var query = 'prefix bag: <http://lod.geodan.nl/vocab/bag#> \
-        prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#>  \
+        prefix ebif: <http://lod.geodan.nl/vocab/ebif#>  \
         prefix locn: <http://www.w3.org/ns/locn#> \
-        select ?meter ?metertype ?woonplaats ?straat ?nummer ?letter ?postcode ?oppervlakte ?gebruiksdoel ?geom \
+        select ?meter ?woonplaats ?straat ?nummer ?letter ?postcode ?oppervlakte ?gebruiksdoel ?geom \
         from <http://lod.geodan.nl/basisreg/bag/verblijfsobject/> \
         from <http://lod.geodan.nl/basisreg/bag/nummeraanduiding/> \
-        from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
+        from <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> \
         where { \
             { \
-                graph <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> { \
-                    ?meter a ebif:GasMeter . \
-                    ?meter rdf:type ?metertype . \
+                graph <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> { \
+                    ?meter a ebif:Meter . \
                     ?meter locn:address ?adres . \
                     ?adres locn:postCode ?postcode . \
                     ?adres bag:huisnummer ?nummer . \
                     ?adres locn:postName ?woonplaats . \
                     ?adres locn:thoroughfare ?straat . \
                     optional {?adres bag:huisletter ?letter .} \
+                    filter (bound(?letter)) . \
                 } \
                 graph <http://lod.geodan.nl/basisreg/bag/nummeraanduiding/> { \
                     ?NumAandMut a bag:Nummeraanduidingmutatie . \
@@ -116,9 +116,8 @@ lodui.queries.prototype.geocodedMeters = function(){
                     ?VobjMut bag:geometrie ?geom \
                 } \
             } union { \
-                graph <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> { \
-                    ?meter a ebif:GasMeter . \
-                    ?meter rdf:type ?metertype . \
+                graph <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> { \
+                    ?meter a ebif:Meter . \
                     ?meter locn:address ?adres . \
                     ?adres locn:postCode ?postcode . \
                     ?adres bag:huisnummer ?nummer . \
