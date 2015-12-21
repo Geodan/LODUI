@@ -1,32 +1,33 @@
+var lodui = lodui || {};
 
 lodui.queries = function(){
 	this.sparqlEndpoint = 'http://lod.geodan.nl/sparql?format="text/csv"&query=';
 };
 
 lodui.queries.prototype.getAvgGasUse = function(){
-	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#> \
+	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/ebif#> \
 		prefix locn: <http://www.w3.org/ns/locn#> \
 		select ?time (avg(?waarde) as ?value) \
-		from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
+		from <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> \
 		where { \
 			?meter a ebif:GasMeter . \
 			?meting a ebif:Measurement . \
 			?meting ebif:meter ?meter . \
 			?meting ebif:time ?time . \
 			?meting ebif:measuredValue ?waarde . \
-			filter (xsd:dateTime(?tijd) >= xsd:dateTime("2013-10-01T00:00:00") &&xsd:dateTime(?tijd) < xsd:dateTime("2013-10-02T00:00:00")) \
+			filter (xsd:dateTime(?time) >= xsd:dateTime("2013-01-01T00:00:00") &&xsd:dateTime(?time) < xsd:dateTime("2013-12-31T00:00:00")) \
 		} \
-		group by ?tijd \
-		order by ?tijd';
+		group by ?time \
+		order by ?time';
 		return query;
 }
 
-lodui.queries.prototype.getGasMeters = function(){
-	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#> \
+lodui.queries.prototype.getGasMeters = function(postcode){
+	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/ebif#> \
 		prefix locn: <http://www.w3.org/ns/locn#> \
 		prefix bag: <http://lod.geodan.nl/vocab/bag#> \
 		select ?meter ?woonplaats ?straat ?nummer ?letter ?postcode \
-		from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
+		from <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> \
 		where { \
             ?meter a ebif:GasMeter . \
             ?meter locn:address ?adres . \
@@ -35,22 +36,24 @@ lodui.queries.prototype.getGasMeters = function(){
             ?adres locn:postCode ?postcode . \
             ?adres bag:huisnummer ?nummer . \
             optional {?adres bag:huisletter ?letter .} \
+            FILTER regex(?postcode, "'+postcode+'","i") . \
 		} \
-		order by ?woonplaats ?straat ?nummer';
+		order by ?woonplaats ?straat ?nummer \
+		LIMIT 20';
 		var request_url = encodeURI(this.sparqlEndpoint) + encodeURIComponent(query);
 		//return request_url;
 		return query;
 }
 lodui.queries.prototype.getMeterValues = function(meter){
-	var query = 'prefix ebif:<http://lod.geodan.nl/vocab/cerise-sg/ebif#>\
+	var query = 'prefix ebif:<http://lod.geodan.nl/vocab/ebif#>\
 		select ?time ?value \
-		from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
+		from <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> \
 		where { \
 		    ?meting a ebif:Measurement . \
 		    ?meting ebif:meter <'+meter+'> . \
 		    ?meting ebif:time ?time . \
 		    ?meting ebif:measuredValue ?value . \
-		    filter (xsd:dateTime(?time) >= xsd:dateTime("2013-02-01T00:00:00") && xsd:dateTime(?time) < xsd:dateTime("2013-03-31T00:00:00"))\
+		    filter (xsd:dateTime(?time) >= xsd:dateTime("2013-01-01T00:00:00") && xsd:dateTime(?time) < xsd:dateTime("2013-12-31T00:00:00"))\
 		} \
 		order by ?time';
 	var request_url = encodeURI(this.sparqlEndpoint) + encodeURIComponent(query);
@@ -58,9 +61,9 @@ lodui.queries.prototype.getMeterValues = function(meter){
 	return query;
 }
 lodui.queries.prototype.geteMeterValues = function(meter){
-	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#> \
+	var query = 'prefix ebif: <http://lod.geodan.nl/vocab/ebif#> \
         select distinct?time bif:either(min(?value) > 0,0,min(?value)) as ?teruglevering (max(?value) as ?levering) \
-        from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
+        from <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> \
         where { \
             ?meting a ebif:Measurement . \
             ?meting ebif:meter <'+meter+'> . \
@@ -78,23 +81,23 @@ lodui.queries.prototype.geteMeterValues = function(meter){
 
 lodui.queries.prototype.geocodedMeters = function(){
 	var query = 'prefix bag: <http://lod.geodan.nl/vocab/bag#> \
-        prefix ebif: <http://lod.geodan.nl/vocab/cerise-sg/ebif#>  \
+        prefix ebif: <http://lod.geodan.nl/vocab/ebif#>  \
         prefix locn: <http://www.w3.org/ns/locn#> \
-        select ?meter ?metertype ?woonplaats ?straat ?nummer ?letter ?postcode ?oppervlakte ?gebruiksdoel ?geom \
+        select ?meter ?woonplaats ?straat ?nummer ?letter ?postcode ?oppervlakte ?gebruiksdoel ?geom \
         from <http://lod.geodan.nl/basisreg/bag/verblijfsobject/> \
         from <http://lod.geodan.nl/basisreg/bag/nummeraanduiding/> \
-        from <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> \
+        from <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> \
         where { \
             { \
-                graph <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> { \
-                    ?meter a ebif:GasMeter . \
-                    ?meter rdf:type ?metertype . \
+                graph <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> { \
+                    ?meter a ebif:Meter . \
                     ?meter locn:address ?adres . \
                     ?adres locn:postCode ?postcode . \
                     ?adres bag:huisnummer ?nummer . \
                     ?adres locn:postName ?woonplaats . \
                     ?adres locn:thoroughfare ?straat . \
                     optional {?adres bag:huisletter ?letter .} \
+                    filter (bound(?letter)) . \
                 } \
                 graph <http://lod.geodan.nl/basisreg/bag/nummeraanduiding/> { \
                     ?NumAandMut a bag:Nummeraanduidingmutatie . \
@@ -113,9 +116,8 @@ lodui.queries.prototype.geocodedMeters = function(){
                     ?VobjMut bag:geometrie ?geom \
                 } \
             } union { \
-                graph <http://lod.geodan.nl/cerise-sg/ebif/julianadorp/> { \
-                    ?meter a ebif:GasMeter . \
-                    ?meter rdf:type ?metertype . \
+                graph <http://lod.geodan.nl/cerisesg/ebif/julianadorp/> { \
+                    ?meter a ebif:Meter . \
                     ?meter locn:address ?adres . \
                     ?adres locn:postCode ?postcode . \
                     ?adres bag:huisnummer ?nummer . \
